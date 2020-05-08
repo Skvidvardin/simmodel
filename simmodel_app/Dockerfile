@@ -1,5 +1,5 @@
 # pull official base image
-FROM python:3.6.10-slim-buster
+FROM python:3.6.10
 
 # set working dir
 WORKDIR /home/ubuntu/simmodel/simmodel_app/
