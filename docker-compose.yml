@@ -1,0 +1,11 @@
+version: '3.7'
+
+services:
+  web:
+    build: simmodel_app
+    command: python app.py
+    volumes:
+      - ./simmodel_app/:/home/ubuntu/simmodel_app/
+    ports:
+      - 8050:8050
+      - 80:80

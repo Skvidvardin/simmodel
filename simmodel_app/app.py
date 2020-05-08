@@ -1,30 +1,36 @@
+import flask
+
 import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
+import datetime
+from dateutil.relativedelta import relativedelta
+import pandas as pd
+
 import plotly.graph_objects as go
 
-import time
+import simmodel
+# from simmodel_app import simmodel  # for DEBUG
 
-from simmodel import *
-
-
-def generate_table(dataframe, max_rows=10):
-    return html.Table([
-        html.Thead(
-            html.Tr([html.Th(col) for col in dataframe.columns])
-        ),
-        html.Tbody([
-            html.Tr([
-                html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-            ]) for i in range(min(len(dataframe), max_rows))
-        ])
-    ])
+# def generate_table(dataframe, max_rows=10):
+#     return html.Table([
+#         html.Thead(
+#             html.Tr([html.Th(col) for col in dataframe.columns])
+#         ),
+#         html.Tbody([
+#             html.Tr([
+#                 html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
+#             ]) for i in range(min(len(dataframe), max_rows))
+#         ])
+#     ])
 
 
-app = dash.Dash(external_stylesheets=[dbc.themes.CYBORG])
+server = flask.Flask(__name__)
+app = dash.Dash(__name__, server=server, external_stylesheets=[dbc.themes.CYBORG])
+app.config.suppress_callback_exceptions = True
 
 # the style arguments for the sidebar. We use position:fixed and a fixed width
 SIDEBAR_STYLE = {
@@ -390,12 +396,12 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers,
                   avgWorkDaysPerModel, sdWorkDaysPerModel):
 
     if n_clicks is not None:
-        df = sm_main(int(simulationsNum), int(nWorkers),
-                     int(modelsIncome), int(initialQueueSize), int(initialInprogressSize),
-                     int(avgWorkDaysPerModel), float(sdWorkDaysPerModel),
-                     datetime.datetime.strptime(startDate, '%d/%m/%Y'),
-                     datetime.datetime.strptime(endDate, '%d/%m/%Y'),
-                     )
+        df = simmodel.sm_main(int(simulationsNum), int(nWorkers),
+                              int(modelsIncome), int(initialQueueSize), int(initialInprogressSize),
+                              int(avgWorkDaysPerModel), float(sdWorkDaysPerModel),
+                              datetime.datetime.strptime(startDate, '%d/%m/%Y'),
+                              datetime.datetime.strptime(endDate, '%d/%m/%Y'),
+                              )
     else:
         df = pd.read_csv('./assets/sample_df.csv', sep=',')
 
@@ -469,4 +475,4 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers,
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', debug=False, port=80)
