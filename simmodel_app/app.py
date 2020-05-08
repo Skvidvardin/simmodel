@@ -475,4 +475,4 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers,
 
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', debug=False, port=80)
+    app.run_server(host='0.0.0.0', debug=False, port=8000)

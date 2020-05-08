@@ -2,10 +2,18 @@ version: '3.7'
 
 services:
   web:
-    build: simmodel_app
+    build: ./simmodel_app
+    restart: always
     command: python app.py
     volumes:
       - ./simmodel_app/:/home/ubuntu/simmodel_app/
     ports:
-      - 8050:8050
-      - 80:80
+      - "8000:8000"
+
+  nginx:
+    build: ./nginx
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - web
