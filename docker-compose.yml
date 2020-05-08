@@ -1,19 +1,21 @@
 version: '3.7'
 
 services:
-  web:
-    build: ./simmodel_app
+  simmodel_app:
+    container_name: simmodel_app
     restart: always
-    command: gunicorn --bind 0.0.0.0:8000 app:server
+    build: ./simmodel_app
+    command: gunicorn -w 1 -b :8000 app:server
     volumes:
       - ./simmodel_app/:/home/ubuntu/simmodel_app/
     ports:
       - "8000:8000"
 
   nginx:
-    build: ./nginx
+    container_name: nginx
     restart: always
+    build: ./nginx
     ports:
       - "80:80"
     depends_on:
-      - web
+      - simmodel_app
