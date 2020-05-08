@@ -4,7 +4,7 @@ services:
   web:
     build: ./simmodel_app
     restart: always
-    command: gunicorn -w 1 -b :8000 app:server
+    command: gunicorn --bind 0.0.0.0:8000 app:server
     volumes:
       - ./simmodel_app/:/home/ubuntu/simmodel_app/
     ports:
