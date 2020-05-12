@@ -11,8 +11,6 @@ COPY . /home/ubuntu/simmodel/simmodel_app/
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-EXPOSE 8000
-
 # install dependencies
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
