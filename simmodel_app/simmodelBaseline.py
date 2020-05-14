@@ -229,3 +229,14 @@ def sm_main(simulationsNum, nWorkers,
             final_df = final_df.append(intermediate_df)
 
     return final_df
+
+
+sm_main(simulationsNum=100,
+        nWorkers=50,
+        modelsIncome=100,
+        initialQueueSize=200,
+        initialInprogressSize=50,
+        avgWorkDaysPerModel=14,
+        sdWorkDaysPerModel=5,
+        startDate=datetime.date(2017, 1, 1),
+        endDate=datetime.date(2018, 1, 1))
