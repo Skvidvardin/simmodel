@@ -164,15 +164,6 @@ def sm_main(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInp
 
         inputData['service_time'] = inputData['service_time'] * inputData['input_mult']
 
-        # sample for qdc_algo_3
-        # knot_locations = [[] for _ in range(5)]
-        # servers_activity_indicators = [[0] for _ in range(5)]
-
-        # outputData = \
-        #     qdc_algo_3(inputData[['arrival_time', 'service_time']].to_numpy(dtype=float),
-        #                knot_locations, servers_activity_indicators)
-
-        # sample for qdc_algo_2
         knot_locations = [0]
         servers_activity_num = [nWorkers, nWorkers]
 
