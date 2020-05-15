@@ -12,7 +12,7 @@ import pandas as pd
 
 import plotly.graph_objects as go
 
-import simmodel
+import qdc
 # from simmodel_app import simmodel  # for DEBUG
 
 # def generate_table(dataframe, max_rows=10):

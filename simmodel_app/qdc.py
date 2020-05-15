@@ -99,7 +99,7 @@ def qdc_algo_3(arrival_serving_time, knot_locations, servers_activity_indicators
     return arrival_serving_time
 
 
-def main_basic(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInprogressSize,
+def sm_main(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInprogressSize,
                avgWorkDaysPerModel, sdWorkDaysPerModel,
                startDate, endDate):
 
@@ -214,22 +214,28 @@ def main_basic(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initial
     resultData['done_time_year'] = resultData['done_time_realtime'].dt.year
     resultData['done_time_month'] = resultData['done_time_realtime'].dt.month
 
-    values = {}
+    values = dict()
 
     # calc incomeNum
     values['incomeNum'] = \
         resultData.groupby(['arrival_time_year', 'arrival_time_month', 'sim'], as_index=False) \
-            .count()[['arrival_time_year', 'arrival_time_month', 'sim', 'arrival_time']]\
+            .count()[['arrival_time_year', 'arrival_time_month', 'sim', 'arrival_time']] \
             .rename(columns={'arrival_time': 'incomeNum'})
-    values['incomeNum'].loc[(values['incomeNum']['incomeNum'] == startDate.year) &
-                            (values['incomeNum']['incomeNum'] == startDate.month)] -= \
+    values['incomeNum'].loc[(values['incomeNum']['arrival_time_year'] == startDate.year) &
+                            (values['incomeNum']['arrival_time_month'] == startDate.month), 'incomeNum'] -= \
         (initialQueueSize + initialInprogressSize)
+    values['incomeNum']['date'] = (values['incomeNum']['arrival_time_month']).astype(str) + '-' + \
+                                  (values['incomeNum']['arrival_time_year']).astype(str)
+    del values['incomeNum']['arrival_time_month'], values['incomeNum']['arrival_time_year']
 
     # calc doneNum
     values['doneNum'] = \
         resultData.groupby(['done_time_year', 'done_time_month', 'sim'], as_index=False) \
             .count()[['done_time_year', 'done_time_month', 'sim', 'done_time']] \
             .rename(columns={'done_time': 'doneNum'})
+    values['doneNum']['date'] = (values['doneNum']['done_time_month']).astype(str) + '-' + \
+                                (values['doneNum']['done_time_year']).astype(str)
+    del values['doneNum']['done_time_month'], values['doneNum']['done_time_year']
 
     # calc queueNum, inProgressNum, avgServingTime, avgWaitingTime, avgTime2Done
     for date in dates_unique_months['timestamps']:
@@ -238,13 +244,13 @@ def main_basic(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initial
                                                 (resultData['arrival_time_realtime'] < date), :] \
                 .groupby(['sim'], as_index=False).count()[['sim', 'service_start']] \
                 .rename(columns={'service_start': 'queueNum'})
-            values['queueNum']['date'] = date
+            values['queueNum']['date'] = str(date.month)+'-'+str(date.year)
 
             values['inProgressNum'] = resultData.loc[(resultData['done_time_realtime'] > date) &
                                                      (resultData['service_start_realtime'] < date), :] \
                 .groupby(['sim'], as_index=False).count()[['sim', 'done_time']] \
                 .rename(columns={'done_time': 'inProgressNum'})
-            values['inProgressNum']['date'] = date
+            values['inProgressNum']['date'] = str(date.month)+'-'+str(date.year)
 
             values['avgTimes'] = resultData.loc[(resultData['done_time_year'] == date.year) &
                                                       (resultData['done_time_month'] == date.month), :] \
@@ -253,21 +259,21 @@ def main_basic(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initial
                 .rename(columns={'service_time': 'avgServingTime',
                                  'queue_time_range': 'avgWaitingTime',
                                  'done_time_range': 'avgTime2Done'})
-            values['avgTimes']['date'] = date
+            values['avgTimes']['date'] = str(date.month)+'-'+str(date.year)
 
         else:
             value = resultData.loc[(resultData['service_start_realtime'] > date) &
                                    (resultData['arrival_time_realtime'] < date), :] \
                 .groupby(['sim'], as_index=False).count()[['sim', 'service_start']] \
                 .rename(columns={'service_start': 'queueNum'})
-            value['date'] = date
+            value['date'] = str(date.month)+'-'+str(date.year)
             values['queueNum'] = values['queueNum'].append(value)
 
             value = resultData.loc[(resultData['done_time_realtime'] > date) &
                                    (resultData['service_start_realtime'] < date), :] \
                 .groupby(['sim'], as_index=False).count()[['sim', 'done_time']] \
                 .rename(columns={'done_time': 'inProgressNum'})
-            value['date'] = date
+            value['date'] = str(date.month)+'-'+str(date.year)
             values['inProgressNum'] = values['inProgressNum'].append(value)
 
             value = resultData.loc[(resultData['done_time_year'] == date.year) &
@@ -277,28 +283,29 @@ def main_basic(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initial
                 .rename(columns={'service_time': 'avgServingTime',
                                  'queue_time_range': 'avgWaitingTime',
                                  'done_time_range': 'avgTime2Done'})
-            value['date'] = date
+            value['date'] = str(date.month)+'-'+str(date.year)
             values['avgTimes'] = values['avgTimes'].append(value)
 
-    for v in values:
-        # нужно доделать output тут в нужном формате
-        # даты должны быть <месяц>-<год>
-        result = pd.DataFrame(columns=['date', 'incomeNum', 'queueNum', 'inProgressNum', 'doneNum',
-                                       'avgWaitingTime', 'avgServingTime', 'avgTime2Done', 'sim'])
+    result = None
+    for key in values.keys():
+        if result is None:
+            result = values[key]
+        else:
+            result = result.merge(values[key], 'left', on=['sim', 'date'])
 
     return result
 
 
-def main_advanced():
-    return -1
+# def main_advanced():
+#     return -1
 
 
-main_basic(simulationsNum=100,
-           nWorkers=50,
-           modelsIncome=100,
-           initialQueueSize=200,
-           initialInprogressSize=50,
-           avgWorkDaysPerModel=14,
-           sdWorkDaysPerModel=5,
-           startDate=datetime.date(2017, 1, 1),
-           endDate=datetime.date(2018, 1, 1))
+# main_basic(simulationsNum=100,
+#            nWorkers=50,
+#            modelsIncome=100,
+#            initialQueueSize=200,
+#            initialInprogressSize=50,
+#            avgWorkDaysPerModel=14,
+#            sdWorkDaysPerModel=5,
+#            startDate=datetime.date(2017, 1, 1),
+#            endDate=datetime.date(2018, 1, 1))
