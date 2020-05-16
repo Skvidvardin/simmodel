@@ -252,7 +252,47 @@ app.layout = html.Div([dcc.Location(id="url"),
                                         ]
                                         )]
                                    ),
+
                                    html.P(),
+                                   html.P(html.Span(["Or upload data by day ",
+                                                     html.Span(html.I(className="fas fa-exclamation-triangle"),
+                                                               style={'color': "#5bc0de"}
+                                                               ),
+                                                     ":"]),
+                                          style={'color': '#cccccc'},
+                                          id='warningIcon2'),
+                                   dbc.Tooltip(
+                                       dcc.Markdown('''
+                                            Please, upload a CSV file with data about number of models;
+
+                                            CSV must contain two comma-separated columns 'date' and 'volume'. Values of
+                                             'date' must be in dd/mm/yyyy format. Values of 'volume' must be positive
+                                              integers;
+                                              
+                                            Please, verify that models come only at business days.
+                                            '''),
+                                       target=f"warningIcon2",
+                                       placement='right',
+                                       style={'font-size': '200%', 'textAlign': 'left', }),
+                                   dcc.Upload(
+                                       id='upload-data2',
+                                       children=html.Div([
+                                           'Drag and Drop or Click and Select Files',
+                                       ]),
+                                       multiple=False,
+                                       style={'width': '100%',
+                                              'height': '10%',
+                                              'lineHeight': '200%',
+                                              'borderWidth': '2px',
+                                              'borderStyle': 'dashed',
+                                              'borderRadius': '2px',
+                                              'borderColor': '#444444',
+                                              'textAlign': 'center',
+                                              }),
+                                   html.Div(id='output-data-upload2', style={'color': '#444444'}),
+                                   html.Div(id='output-data-upload-hidden2', style={'display': 'none'}),
+                                   html.Hr(),
+
                                    # SIDEBAR MODELS IN QUEUE
                                    html.Div(
                                        [html.P("Select number of models in queue already:", style={'color': '#cccccc'}),
@@ -459,17 +499,29 @@ def update_output(value1, value2):
                State('end-day-input', 'value'),
                State('n-simulations-input', 'value'),
                State('n-workers-input', 'value'),
+               State('output-data-upload-hidden2', 'value'),
                State('n-models-income-input', 'value'),
+               State('output-data-upload-hidden2', 'value'),
                State('n-models-in-queue-input', 'value'),
                State('n-models-in-progress-input', 'value'),
                State('avg-days-per-model-input', 'value'),
                State('std-days-per-model-input', 'value'), ])
-def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers,
-                  modelsIncome, initialQueueSize, initialInprogressSize,
+def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers, nWorkersDict,
+                  modelsIncome, modelsIncomeDict, initialQueueSize, initialInprogressSize,
                   avgWorkDaysPerModel, sdWorkDaysPerModel):
+    try:
+        nWorkersDF = pd.DataFrame(eval(nWorkersDict))
+    except:
+        nWorkersDF = None
+
+    try:
+        modelsIncomeDF = pd.DataFrame(eval(modelsIncomeDict))
+    except:
+        modelsIncomeDF = None
+
     if n_clicks is not None:
-        df = qdc.sm_main(int(simulationsNum), int(nWorkers),
-                         int(modelsIncome), int(initialQueueSize), int(initialInprogressSize),
+        df = qdc.sm_main(int(simulationsNum), int(nWorkers), nWorkersDF,
+                         int(modelsIncome), modelsIncomeDF, int(initialQueueSize), int(initialInprogressSize),
                          int(avgWorkDaysPerModel), float(sdWorkDaysPerModel),
                          datetime.datetime.strptime(startDate, '%d/%m/%Y'),
                          datetime.datetime.strptime(endDate, '%d/%m/%Y'),
@@ -552,6 +604,27 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers,
               [Input('upload-data', 'contents')],
               [State('upload-data', 'filename'),
                State('upload-data', 'last_modified')])
+def update_output(contents, filename, last_modified):
+    print(filename)
+    if contents is not None:
+        try:
+            content_type, content_string = contents.split(',')
+            decoded = base64.b64decode(content_string)
+            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            return 'Successfully uploaded: ' + filename, str(df.to_dict())
+
+        except Exception as e:
+            return 'There was an error processing this file, try more.', 'None'
+    else:
+        return '', 'None'
+
+
+@app.callback([Output('output-data-upload2', 'children'),
+               Output('output-data-upload-hidden2', 'children')
+               ],
+              [Input('upload-data2', 'contents')],
+              [State('upload-data2', 'filename'),
+               State('upload-data2', 'last_modified')])
 def update_output(contents, filename, last_modified):
     print(filename)
     if contents is not None:

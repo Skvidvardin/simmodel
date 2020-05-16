@@ -99,7 +99,7 @@ def qdc_algo_3(arrival_serving_time, knot_locations, servers_activity_indicators
     return arrival_serving_time
 
 
-def sm_main(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInprogressSize,
+def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, initialQueueSize, initialInprogressSize,
                avgWorkDaysPerModel, sdWorkDaysPerModel,
                startDate, endDate):
 
@@ -137,7 +137,7 @@ def sm_main(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInp
         inputData = inputData.append(pd.DataFrame([[0, 'initialQueue'] for _ in range(initialQueueSize)],
                                                   columns=['arrival_time', 'model_input_type']))
 
-    if modelsIncome > 0:
+    if modelsIncome > 0 and modelsIncomeDF is None:
 
         for index, row in dates_unique_months.iterrows():
             dates_selected = list(filter(lambda x: x.year == row.year and x.month == row.month, dates))
@@ -152,6 +152,9 @@ def sm_main(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInp
             modelsInput['model_input_type'] = 'income'
 
             inputData = inputData.append(modelsInput.sort_values('arrival_time', ignore_index=True), ignore_index=True)
+
+    elif modelsIncomeDF is not None:
+        print('bla bal')
 
     for sim in range(simulationsNum):
         inputData['service_time'] = np.random.gamma((avgWorkDaysPerModel ** 2) / (sdWorkDaysPerModel ** 2),
@@ -291,12 +294,14 @@ def sm_main(simulationsNum, nWorkers, modelsIncome, initialQueueSize, initialInp
 #     return -1
 
 
-# main_basic(simulationsNum=100,
-#            nWorkers=50,
-#            modelsIncome=100,
-#            initialQueueSize=200,
-#            initialInprogressSize=50,
-#            avgWorkDaysPerModel=14,
-#            sdWorkDaysPerModel=5,
-#            startDate=datetime.date(2017, 1, 1),
-#            endDate=datetime.date(2018, 1, 1))
+sm_main(simulationsNum=100,
+        nWorkers=50,
+        nWorkersDF=None,
+        modelsIncome=100,
+        modelsIncomeDF=None,
+        initialQueueSize=200,
+        initialInprogressSize=50,
+        avgWorkDaysPerModel=14,
+        sdWorkDaysPerModel=5,
+        startDate=datetime.date(2017, 1, 1),
+        endDate=datetime.date(2018, 1, 1))
