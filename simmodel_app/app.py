@@ -1,4 +1,6 @@
 import flask
+import base64
+import io
 
 import dash
 import dash_bootstrap_components as dbc
@@ -54,6 +56,8 @@ CONTENT_STYLE = {
 }
 
 app.layout = html.Div([dcc.Location(id="url"),
+                       dcc.Store(id='local', storage_type='session'),
+
                        # SIDEBAR
 
                        html.Div(
@@ -168,18 +172,47 @@ app.layout = html.Div([dcc.Location(id="url"),
                                         ]
                                         ),
                                         html.P(),
-                                        html.P(html.Span(["Or upload datatable ",
+                                        html.P(html.Span(["And upload deltas if required ",
                                                           html.Span(html.I(className="fas fa-exclamation-triangle red"),
-                                                                    style={'color': "#5bc0de "}
+                                                                    style={'color': "#5bc0de"}
                                                                     ),
                                                           ":"]),
                                                style={'color': '#cccccc'},
                                                id='warningIcon'),
                                         dbc.Tooltip(
-                                            f"Tooltip on",
+                                            dcc.Markdown('''
+                                            Please, upload a CSV file with data about changes/deltas in number of 
+                                            workers;
+                                            
+                                            CSV must contain two comma-separated columns 'date' and 'delta'. Values of
+                                             'date' must be in dd/mm/yyyy format. Values of 'delta' must be positive or 
+                                              negative integers;
+                                              
+                                            Warning: minimal interval between changes in number of workers should be
+                                             less than any model execution. All models will be adjusted.
+                                              Use "Advanced settings" tab for more precise model.
+                                            '''),
                                             target=f"warningIcon",
                                             placement='right',
-                                            style={'font-size': '200%'})
+                                            style={'font-size': '200%', 'textAlign': 'left',}),
+                                        dcc.Upload(
+                                            id='upload-data',
+                                            children=html.Div([
+                                                'Drag and Drop or Click and Select Files',
+                                            ]),
+                                            multiple=False,
+                                            style={'width': '100%',
+                                                   'height': '10%',
+                                                   'lineHeight': '200%',
+                                                   'borderWidth': '2px',
+                                                   'borderStyle': 'dashed',
+                                                   'borderRadius': '2px',
+                                                   'borderColor': '#444444',
+                                                   'textAlign': 'center',
+                                                   }),
+                                        html.Div(id='output-data-upload', style={'color': '#444444'}),
+                                        html.Div(id='output-data-upload-hidden', style={'display': 'none'}),
+
                                         ]
                                    ),
                                    html.Hr(),
@@ -411,7 +444,7 @@ def update_output(value):
      dash.dependencies.Input('n-workers-input', 'value')])
 def update_output(value1, value2):
     value = ''
-    if value1 > value2:
+    if int(value1) > int(value2):
         value = f"Please, validate that initial in-progress size ({value1}) <= number of workers ({value2})"
     return value
 
@@ -511,6 +544,27 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers,
     fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
 
     return fig1, fig2, fig3, fig4
+
+
+@app.callback([Output('output-data-upload', 'children'),
+               Output('output-data-upload-hidden', 'children')
+               ],
+              [Input('upload-data', 'contents')],
+              [State('upload-data', 'filename'),
+               State('upload-data', 'last_modified')])
+def update_output(contents, filename, last_modified):
+    print(filename)
+    if contents is not None:
+        try:
+            content_type, content_string = contents.split(',')
+            decoded = base64.b64decode(content_string)
+            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            return 'Successfully uploaded: ' + filename, str(df.to_dict())
+
+        except Exception as e:
+            return 'There was an error processing this file, try more.', 'None'
+    else:
+        return '', 'None'
 
 
 if __name__ == '__main__':
