@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 
 
-def qdc_algo_2(arrival_serving_time, knot_locations, servers_activity_num):
+def qdc_algo_2(arrival_serving_time, knot_locations, active_servers_count):
     """
 
     :param arrival_serving_time:
@@ -11,38 +11,51 @@ def qdc_algo_2(arrival_serving_time, knot_locations, servers_activity_num):
     :param servers_activity_num:
     :return:
     """
-    arrival_serving_time = np.insert(arrival_serving_time, 0, np.arange(len(arrival_serving_time)), axis=1)
     knot_locations.append(np.inf)
-    servers_activity_num.append(1)
+    active_servers_count.append(0)
 
-    b = np.full(np.max(servers_activity_num), np.inf)
-    b[:servers_activity_num[0]] = 0
+    n_servers = np.max(active_servers_count)
 
-    p = np.zeros(len(arrival_serving_time)).astype(int)  # vector of indexes of workers who served the model
-    d = np.zeros(len(arrival_serving_time))
+    queue_times = np.full(n_servers, np.inf)  # vector of workers availability time (changes each moment)
+    queue_times[:active_servers_count[0]] = 0
 
-    l = 0
-    p[0] = 0
+    n = len(arrival_serving_time)
 
-    for i in range(len(arrival_serving_time)):
-        if (b > knot_locations[l + 1]).all() or arrival_serving_time[i, 1] > knot_locations[l + 1]:
-            if knot_locations[l + 1] - knot_locations[l] > 0:
-                for k in range(knot_locations[l] + 1, knot_locations[l + 1]):
-                    b[k] = knot_locations[l + 1]
-            if knot_locations[l + 1] - knot_locations[l] < 0:
-                for k in range(knot_locations[l + 1] + 1, knot_locations[l]):
-                    b[k] = np.inf
-            l += 1
+    server_output = np.full(n, -1).astype(int)  # vector of indexes of workers who served the model
+    output = np.full(n, np.inf)  # endings of models serving (timestamps)
 
-        p[i] = np.argmin(b)
-        b[p[i]] = max(arrival_serving_time[i, 1], b[p[i]]) + arrival_serving_time[i, 2]
-        d[i] = b[p[i]]
+    next_time = knot_locations[0]
 
-        if knot_locations[l] == 0:
+    current_size = active_servers_count[0]
+    next_size = active_servers_count[1]
+    iter = 0
+
+    for i in range(n):
+        if (queue_times > next_time).all() or arrival_serving_time[i, 0] >= next_time:
+            diff_size = next_size - current_size
+            if diff_size > 0:
+                for k in range(current_size, next_size):
+                    queue_times[k] = next_time
+            if diff_size < 0:
+                for k in range(next_size, current_size):
+                    queue_times[k] = np.inf
+
+            current_size = next_size
+            iter += 1
+            next_size = active_servers_count[iter + 1]
+            next_time = knot_locations[iter]
+
+        queue = np.argmin(queue_times)
+        queue_times[queue] = max(arrival_serving_time[i, 0], queue_times[queue]) + arrival_serving_time[i, 1]
+        output[i] = queue_times[queue]
+        server_output[i] = queue + 1
+
+        if current_size == 0:
             i -= 1
+            if next_time == np.inf:
+                break
 
-    arrival_serving_time = np.insert(arrival_serving_time, 3, np.array([d, p]), axis=1)
-    arrival_serving_time = arrival_serving_time[arrival_serving_time[:, 0].argsort()]
+    arrival_serving_time = np.insert(arrival_serving_time, 2, np.array([output, server_output]), axis=1)
 
     return arrival_serving_time
 
@@ -154,7 +167,32 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
             inputData = inputData.append(modelsInput.sort_values('arrival_time', ignore_index=True), ignore_index=True)
 
     elif modelsIncomeDF is not None:
-        print('bla bal')
+
+        modelsIncomeDF['arrival_time'] = pd.to_datetime(modelsIncomeDF['date'], format='%d/%m/%Y')
+        modelsIncomeDF['arrival_time'] = modelsIncomeDF['arrival_time'].map(dates_straight_mapper)
+
+        modelsIncomeDF = modelsIncomeDF.loc[modelsIncomeDF.index.repeat(modelsIncomeDF['volume'])]
+        modelsIncomeDF['model_input_type'] = 'income'
+        del modelsIncomeDF['volume'], modelsIncomeDF['date']
+        inputData = inputData.append(modelsIncomeDF.sort_values('arrival_time', ignore_index=True), ignore_index=True)
+
+    if nWorkersDF is not None:
+
+        nWorkersDF['date'] = pd.to_datetime(nWorkersDF['date'], format='%d/%m/%Y')
+        nWorkersDF['date'] = nWorkersDF['date'].map(dates_straight_mapper)
+
+        nWorkersDF = pd.concat([pd.DataFrame({'date': [0], 'delta': [nWorkers]}), nWorkersDF]).reset_index(drop=True)
+
+        max_range_workers_delta = np.inf
+        for i in range(1, len(nWorkersDF)):
+            max_range_workers_delta_check = int(nWorkersDF.loc[i, 'date']) - int(nWorkersDF.loc[i - 1, 'date'])
+            if max_range_workers_delta_check < max_range_workers_delta:
+                max_range_workers_delta = max_range_workers_delta_check
+            nWorkersDF.loc[i, 'delta'] = nWorkersDF.loc[i - 1, 'delta'] + int(nWorkersDF.loc[i, 'delta'])
+        del max_range_workers_delta_check
+
+        knot_locations = nWorkersDF['date'].tolist()[1:]
+        servers_activity_num = nWorkersDF['delta'].tolist()
 
     for sim in range(simulationsNum):
         inputData['service_time'] = np.random.gamma((avgWorkDaysPerModel ** 2) / (sdWorkDaysPerModel ** 2),
@@ -167,14 +205,17 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
 
         inputData['service_time'] = inputData['service_time'] * inputData['input_mult']
 
-        knot_locations = [0]
-        servers_activity_num = [nWorkers, nWorkers]
+        if nWorkersDF is None:
+            knot_locations = [0]
+            servers_activity_num = [nWorkers, nWorkers]
+        elif nWorkersDF is not None:
+            inputData['service_time_max'] = max_range_workers_delta
+            inputData['service_time'] = inputData[['service_time', 'service_time_max']].min(axis=1)
 
-        outputData = \
-            qdc_algo_2(inputData[['arrival_time', 'service_time']].to_numpy(dtype=float),
-                       knot_locations, servers_activity_num)
+        outputData = qdc_algo_2(inputData[['arrival_time', 'service_time']].to_numpy(dtype=float),
+                                knot_locations, servers_activity_num)
 
-        outputData = pd.DataFrame(outputData[:, 1:4], columns=['arrival_time', 'service_time', 'done_time'])
+        outputData = pd.DataFrame(outputData[:, 0:3], columns=['arrival_time', 'service_time', 'done_time'])
         outputData['sim'] = sim
 
         resultData = resultData.append(outputData)
@@ -218,8 +259,8 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
     values['incomeNum'].loc[(values['incomeNum']['arrival_time_year'] == startDate.year) &
                             (values['incomeNum']['arrival_time_month'] == startDate.month), 'incomeNum'] -= \
         (initialQueueSize + initialInprogressSize)
-    values['incomeNum']['date'] = (values['incomeNum']['arrival_time_month']).astype(str) + '-' + \
-                                  (values['incomeNum']['arrival_time_year']).astype(str)
+    values['incomeNum']['date'] = (values['incomeNum']['arrival_time_month']).astype(int).astype(str) + '-' + \
+                                  (values['incomeNum']['arrival_time_year']).astype(int).astype(str)
     del values['incomeNum']['arrival_time_month'], values['incomeNum']['arrival_time_year']
 
     # calc doneNum
@@ -227,8 +268,8 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
         resultData.groupby(['done_time_year', 'done_time_month', 'sim'], as_index=False) \
             .count()[['done_time_year', 'done_time_month', 'sim', 'done_time']] \
             .rename(columns={'done_time': 'doneNum'})
-    values['doneNum']['date'] = (values['doneNum']['done_time_month']).astype(str) + '-' + \
-                                (values['doneNum']['done_time_year']).astype(str)
+    values['doneNum']['date'] = (values['doneNum']['done_time_month']).astype(int).astype(str) + '-' + \
+                                (values['doneNum']['done_time_year']).astype(int).astype(str)
     del values['doneNum']['done_time_month'], values['doneNum']['done_time_year']
 
     # calc queueNum, inProgressNum, avgServingTime, avgWaitingTime, avgTime2Done
@@ -288,20 +329,3 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
             result = result.merge(values[key], 'left', on=['sim', 'date'])
 
     return result
-
-
-# def main_advanced():
-#     return -1
-
-
-sm_main(simulationsNum=100,
-        nWorkers=50,
-        nWorkersDF=None,
-        modelsIncome=100,
-        modelsIncomeDF=None,
-        initialQueueSize=200,
-        initialInprogressSize=50,
-        avgWorkDaysPerModel=14,
-        sdWorkDaysPerModel=5,
-        startDate=datetime.date(2017, 1, 1),
-        endDate=datetime.date(2018, 1, 1))

@@ -185,8 +185,8 @@ app.layout = html.Div([dcc.Location(id="url"),
                                             workers;
                                             
                                             CSV must contain two comma-separated columns 'date' and 'delta'. Values of
-                                             'date' must be in dd/mm/yyyy format. Values of 'delta' must be positive or 
-                                              negative integers;
+                                             'date' must be business days in dd/mm/yyyy format. Values of 'delta' must
+                                              be positive or negative integers;
                                               
                                             Warning: minimal interval between changes in number of workers should be
                                              less than any model execution. All models will be adjusted.
@@ -499,9 +499,9 @@ def update_output(value1, value2):
                State('end-day-input', 'value'),
                State('n-simulations-input', 'value'),
                State('n-workers-input', 'value'),
-               State('output-data-upload-hidden2', 'value'),
+               State('output-data-upload-hidden', 'children'),
                State('n-models-income-input', 'value'),
-               State('output-data-upload-hidden2', 'value'),
+               State('output-data-upload-hidden2', 'children'),
                State('n-models-in-queue-input', 'value'),
                State('n-models-in-progress-input', 'value'),
                State('avg-days-per-model-input', 'value'),
