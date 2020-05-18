@@ -7,6 +7,7 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
+import dash_table
 
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -17,19 +18,7 @@ import plotly.graph_objects as go
 # import qdc
 from simmodel_app import qdc  # for DEBUG
 
-# def generate_table(dataframe, max_rows=10):
-#     return html.Table([
-#         html.Thead(
-#             html.Tr([html.Th(col) for col in dataframe.columns])
-#         ),
-#         html.Tbody([
-#             html.Tr([
-#                 html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-#             ]) for i in range(min(len(dataframe), max_rows))
-#         ])
-#     ])
-
-FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+FONT_AWESOME = "./assets/fontawesome-free-5.13.0-web/css/all.css"
 
 server = flask.Flask(__name__)
 app = dash.Dash(__name__, server=server, external_stylesheets=[dbc.themes.CYBORG, FONT_AWESOME])
@@ -55,132 +44,121 @@ CONTENT_STYLE = {
     "padding": "2rem 1rem",
 }
 
-app.layout = html.Div([dcc.Location(id="url"),
-                       dcc.Store(id='local', storage_type='session'),
+sidebarFastTab = dcc.Tab(label='Fast settings', children=html.Div([
 
-                       # SIDEBAR
+    # SIDEBAR START/END DATE OF SIMULATION
+    html.Div(
+        [html.Br(),
+         dbc.Row([
+             dbc.Col(
+                 [html.P("Start date:", style={'color': '#cccccc'}),
+                  dcc.Input(
+                      id='start-day-input',
+                      placeholder='DD/MM/YYYY',
+                      type='text',
+                      value=(datetime.datetime.today() - relativedelta(years=1)).strftime(
+                          '%d/%m/%Y'),
+                      style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                             'color': '#cccccc'}
+                  )], width='auto'
+             ),
+             dbc.Col(
+                 [html.P("End Date:", style={'color': '#cccccc'}),
+                  dcc.Input(
+                      id='end-day-input',
+                      placeholder='DD/MM/YYYY',
+                      type='text',
+                      value=datetime.datetime.today().strftime('%d/%m/%Y'),
+                      style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                             'color': '#cccccc'}
+                  )], width='auto'
+             ),
+         ]
+         )]
+    ),
+    html.Hr(),
 
-                       html.Div(
-                           [
-                               # SIDEBAR HEADER
-                               html.H2("Simmodel Dashboard", className="display-4", style={'color': '#cccccc'}),
-                               # html.Hr(),
+    # SIDEBAR N SIMUlATIONS
+    html.Div(
+        [html.P("Select number of simulations:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-simulations-input',
+                     placeholder=10,
+                     type='tel',
+                     value=10,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-simulations-slider',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=10,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
+    html.Hr(),
 
-                               dcc.Tabs([dcc.Tab(label='Fast settings', children=html.Div([
-
-                                   # SIDEBAR START/END DATE OF SIMULATION
-                                   html.Div(
-                                       [html.Br(),
-                                        dbc.Row([
-                                           dbc.Col(
-                                               [html.P("Start date:", style={'color': '#cccccc'}),
-                                                dcc.Input(
-                                                    id='start-day-input',
-                                                    placeholder='DD/MM/YYYY',
-                                                    type='text',
-                                                    value=(datetime.datetime.today() - relativedelta(years=1)).strftime(
-                                                        '%d/%m/%Y'),
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                )], width='auto'
-                                           ),
-                                           dbc.Col(
-                                               [html.P("End Date:", style={'color': '#cccccc'}),
-                                                dcc.Input(
-                                                    id='end-day-input',
-                                                    placeholder='DD/MM/YYYY',
-                                                    type='text',
-                                                    value=datetime.datetime.today().strftime('%d/%m/%Y'),
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                )], width='auto'
-                                           ),
-                                       ]
-                                       )]
-                                   ),
-                                   html.Hr(),
-
-                                   # SIDEBAR N SIMUlATIONS
-                                   html.Div(
-                                       [html.P("Select number of simulations:", style={'color': '#cccccc'}),
-                                        dbc.Row([
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id='n-simulations-input',
-                                                    placeholder=10,
-                                                    type='tel',
-                                                    value=10,
-                                                    size='2',
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                ), width='auto'
-                                            ),
-                                            dbc.Col(
-                                                dcc.Slider(
-                                                    id='n-simulations-slider',
-                                                    min=0,
-                                                    max=1000,
-                                                    step=10,
-                                                    value=10,
-                                                    marks={
-                                                        0: '0',
-                                                        200: '200',
-                                                        400: '400',
-                                                        600: '600',
-                                                        800: '800',
-                                                        1000: '1000',
-                                                    },
-                                                )
-                                            )
-                                        ]
-                                        )]
-                                   ),
-                                   html.Hr(),
-
-                                   # SIDEBAR N WORKERS
-                                   html.Div(
-                                       [html.P("Select number of workers:", style={'color': '#cccccc'}),
-                                        dbc.Row([
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id='n-workers-input',
-                                                    placeholder=50,
-                                                    type='tel',
-                                                    value=50,
-                                                    size='2',
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                ), width='auto'
-                                            ),
-                                            dbc.Col(
-                                                dcc.Slider(
-                                                    id='n-workers-slider',
-                                                    min=0,
-                                                    max=1000,
-                                                    step=10,
-                                                    value=50,
-                                                    marks={
-                                                        0: '0',
-                                                        200: '200',
-                                                        400: '400',
-                                                        600: '600',
-                                                        800: '800',
-                                                        1000: '1000',
-                                                    },
-                                                )
-                                            )
-                                        ]
-                                        ),
-                                        html.P(),
-                                        html.P(html.Span(["And upload deltas if required ",
-                                                          html.Span(html.I(className="fas fa-exclamation-triangle red"),
-                                                                    style={'color': "#5bc0de"}
-                                                                    ),
-                                                          ":"]),
-                                               style={'color': '#cccccc'},
-                                               id='warningIcon'),
-                                        dbc.Tooltip(
-                                            dcc.Markdown('''
+    # SIDEBAR N WORKERS
+    html.Div(
+        [html.P("Select number of workers:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-workers-input',
+                     placeholder=50,
+                     type='tel',
+                     value=50,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-workers-slider',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=50,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         ),
+         html.P(),
+         html.P(html.Span(["And upload deltas if required ",
+                           html.Span(html.I(className="fas fa-exclamation-triangle red"),
+                                     style={'color': "#5bc0de"}
+                                     ),
+                           ":"]),
+                style={'color': '#cccccc'},
+                id='warningIcon'),
+         dbc.Tooltip(
+             dcc.Markdown('''
                                             Please, upload a CSV file with data about changes/deltas in number of 
                                             workers;
                                             
@@ -192,77 +170,77 @@ app.layout = html.Div([dcc.Location(id="url"),
                                              less than any model execution. All models will be adjusted.
                                               Use "Advanced settings" tab for more precise model.
                                             '''),
-                                            target=f"warningIcon",
-                                            placement='right',
-                                            style={'font-size': '200%', 'textAlign': 'left',}),
-                                        dcc.Upload(
-                                            id='upload-data',
-                                            children=html.Div([
-                                                'Drag and Drop or Click and Select Files',
-                                            ]),
-                                            multiple=False,
-                                            style={'width': '100%',
-                                                   'height': '10%',
-                                                   'lineHeight': '200%',
-                                                   'borderWidth': '2px',
-                                                   'borderStyle': 'dashed',
-                                                   'borderRadius': '2px',
-                                                   'borderColor': '#444444',
-                                                   'textAlign': 'center',
-                                                   }),
-                                        html.Div(id='output-data-upload', style={'color': '#444444'}),
-                                        html.Div(id='output-data-upload-hidden', style={'display': 'none'}),
+             target=f"warningIcon",
+             placement='right',
+             style={'font-size': '200%', 'textAlign': 'left', }),
+         dcc.Upload(
+             id='upload-data',
+             children=html.Div([
+                 'Drag and Drop or Click and Select Files',
+             ]),
+             multiple=False,
+             style={'width': '100%',
+                    'height': '10%',
+                    'lineHeight': '200%',
+                    'borderWidth': '2px',
+                    'borderStyle': 'dashed',
+                    'borderRadius': '2px',
+                    'borderColor': '#444444',
+                    'textAlign': 'center',
+                    }),
+         html.Div(id='output-data-upload', style={'color': '#444444'}),
+         html.Div(id='output-data-upload-hidden', style={'display': 'none'}),
 
-                                        ]
-                                   ),
-                                   html.Hr(),
+         ]
+    ),
+    html.Hr(),
 
-                                   # SIDEBAR MODELS INCOME
-                                   html.Div(
-                                       [html.P("Select number of income models by month:", style={'color': '#cccccc'}),
-                                        dbc.Row([
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id='n-models-income-input',
-                                                    placeholder=100,
-                                                    type='tel',
-                                                    value=100,
-                                                    size='2',
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                ), width='auto'
-                                            ),
-                                            dbc.Col(
-                                                dcc.Slider(
-                                                    id='n-models-income-slider',
-                                                    min=0,
-                                                    max=1000,
-                                                    step=10,
-                                                    value=100,
-                                                    marks={
-                                                        0: '0',
-                                                        200: '200',
-                                                        400: '400',
-                                                        600: '600',
-                                                        800: '800',
-                                                        1000: '1000',
-                                                    },
-                                                )
-                                            )
-                                        ]
-                                        )]
-                                   ),
+    # SIDEBAR MODELS INCOME
+    html.Div(
+        [html.P("Select number of income models by month:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-models-income-input',
+                     placeholder=100,
+                     type='tel',
+                     value=100,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-models-income-slider',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=100,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
 
-                                   html.P(),
-                                   html.P(html.Span(["Or upload data by day ",
-                                                     html.Span(html.I(className="fas fa-exclamation-triangle"),
-                                                               style={'color': "#5bc0de"}
-                                                               ),
-                                                     ":"]),
-                                          style={'color': '#cccccc'},
-                                          id='warningIcon2'),
-                                   dbc.Tooltip(
-                                       dcc.Markdown('''
+    html.P(),
+    html.P(html.Span(["Or upload data by day ",
+                      html.Span(html.I(className="fas fa-exclamation-triangle"),
+                                style={'color': "#5bc0de"}
+                                ),
+                      ":"]),
+           style={'color': '#cccccc'},
+           id='warningIcon2'),
+    dbc.Tooltip(
+        dcc.Markdown('''
                                             Please, upload a CSV file with data about number of models;
 
                                             CSV must contain two comma-separated columns 'date' and 'volume'. Values of
@@ -271,173 +249,519 @@ app.layout = html.Div([dcc.Location(id="url"),
                                               
                                             Please, verify that models come only at business days.
                                             '''),
-                                       target=f"warningIcon2",
-                                       placement='right',
-                                       style={'font-size': '200%', 'textAlign': 'left', }),
-                                   dcc.Upload(
-                                       id='upload-data2',
-                                       children=html.Div([
-                                           'Drag and Drop or Click and Select Files',
-                                       ]),
-                                       multiple=False,
-                                       style={'width': '100%',
-                                              'height': '10%',
-                                              'lineHeight': '200%',
-                                              'borderWidth': '2px',
-                                              'borderStyle': 'dashed',
-                                              'borderRadius': '2px',
-                                              'borderColor': '#444444',
-                                              'textAlign': 'center',
-                                              }),
-                                   html.Div(id='output-data-upload2', style={'color': '#444444'}),
-                                   html.Div(id='output-data-upload-hidden2', style={'display': 'none'}),
-                                   html.Hr(),
+        target=f"warningIcon2",
+        placement='right',
+        style={'font-size': '200%', 'textAlign': 'left', }),
+    dcc.Upload(
+        id='upload-data2',
+        children=html.Div([
+            'Drag and Drop or Click and Select Files',
+        ]),
+        multiple=False,
+        style={'width': '100%',
+               'height': '10%',
+               'lineHeight': '200%',
+               'borderWidth': '2px',
+               'borderStyle': 'dashed',
+               'borderRadius': '2px',
+               'borderColor': '#444444',
+               'textAlign': 'center',
+               }),
+    html.Div(id='output-data-upload2', style={'color': '#444444'}),
+    html.Div(id='output-data-upload-hidden2', style={'display': 'none'}),
+    html.Hr(),
 
-                                   # SIDEBAR MODELS IN QUEUE
-                                   html.Div(
-                                       [html.P("Select number of models in queue already:", style={'color': '#cccccc'}),
-                                        dbc.Row([
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id='n-models-in-queue-input',
-                                                    placeholder=100,
-                                                    type='tel',
-                                                    value=100,
-                                                    size='2',
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                ), width='auto'
-                                            ),
-                                            dbc.Col(
-                                                dcc.Slider(
-                                                    id='n-models-in-queue-slider',
-                                                    min=0,
-                                                    max=1000,
-                                                    step=10,
-                                                    value=100,
-                                                    marks={
-                                                        0: '0',
-                                                        200: '200',
-                                                        400: '400',
-                                                        600: '600',
-                                                        800: '800',
-                                                        1000: '1000',
-                                                    },
-                                                )
-                                            )
-                                        ]
-                                        )]
-                                   ),
-                                   html.P(),
-                                   # SIDEBAR MODELS IN PROGRESS
-                                   html.Div(
-                                       [html.P("Select number of models in progress already:",
-                                               style={'color': '#cccccc'}),
-                                        dbc.Row([
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id='n-models-in-progress-input',
-                                                    placeholder=100,
-                                                    type='tel',
-                                                    value=50,
-                                                    size='2',
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                ), width='auto'
-                                            ),
-                                            dbc.Col(
-                                                dcc.Slider(
-                                                    id='n-models-in-progress-slider',
-                                                    min=0,
-                                                    max=1000,
-                                                    step=10,
-                                                    value=50,
-                                                    marks={
-                                                        0: '0',
-                                                        200: '200',
-                                                        400: '400',
-                                                        600: '600',
-                                                        800: '800',
-                                                        1000: '1000',
-                                                    },
-                                                )
-                                            )
-                                        ]
-                                        )]
-                                   ),
-                                   html.Hr(),
+    # SIDEBAR MODELS IN QUEUE
+    html.Div(
+        [html.P("Select number of models in queue already:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-models-in-queue-input',
+                     placeholder=100,
+                     type='tel',
+                     value=100,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-models-in-queue-slider',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=100,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
+    html.P(),
+    # SIDEBAR MODELS IN PROGRESS
+    html.Div(
+        [html.P("Select number of models in progress already:",
+                style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-models-in-progress-input',
+                     placeholder=100,
+                     type='tel',
+                     value=50,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-models-in-progress-slider',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=50,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
+    html.Hr(),
 
-                                   # SIDEBAR AVG/STD DAYS PER MODEL
-                                   html.Div(
-                                       [dbc.Row([
-                                           dbc.Col(
-                                               [html.P("Average days per one model:", style={'color': '#cccccc'}),
-                                                dcc.Input(
-                                                    id='avg-days-per-model-input',
-                                                    placeholder=14,
-                                                    type='tel',
-                                                    value=14,
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                )], width='auto'
-                                           ),
-                                           dbc.Col(
-                                               [html.P("Std days per one model:", style={'color': '#cccccc'}),
-                                                dcc.Input(
-                                                    id='std-days-per-model-input',
-                                                    placeholder=2,
-                                                    type='tel',
-                                                    value=2,
-                                                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                                                           'color': '#cccccc'}
-                                                )], width='auto'
-                                           ),
-                                       ]
-                                       )]
-                                   ),
-                                   html.Hr(),
-                                   html.Div(
-                                       [html.P(style={'color': '#FF0000'}, id='warning')],
+    # SIDEBAR AVG/STD DAYS PER MODEL
+    html.Div(
+        [dbc.Row([
+            dbc.Col(
+                [html.P("Average days per one model:", style={'color': '#cccccc'}),
+                 dcc.Input(
+                     id='avg-days-per-model-input',
+                     placeholder=14,
+                     type='tel',
+                     value=14,
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 )], width='auto'
+            ),
+            dbc.Col(
+                [html.P("Std days per one model:", style={'color': '#cccccc'}),
+                 dcc.Input(
+                     id='std-days-per-model-input',
+                     placeholder=2,
+                     type='tel',
+                     value=2,
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 )], width='auto'
+            ),
+        ]
+        )]
+    ),
+    html.Hr(),
+    html.Div(
+        [html.P(style={'color': '#FF0000'}, id='warning')],
 
-                                   ),
+    ),
 
-                                   # SUBMIT BOTTOM
-                                   # html.Br(),
+    # SUBMIT BOTTOM
+    # html.Br(),
 
-                                   dbc.Button(
-                                       "Submit",
-                                       color="primary",
-                                       block=True,
-                                       id="button",
-                                       className="mb-3",
-                                   )],
-                               )),
-                                         dcc.Tab(label='Advanced settings', children=html.Div())
-                                         ])],
-                           style=SIDEBAR_STYLE,
-                       ),
+    dbc.Button(
+        "Submit",
+        color="primary",
+        block=True,
+        id="button",
+        className="mb-3",
+    )]))
+
+sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
+
+    # SIDEBAR START/END DATE OF SIMULATION
+    html.Div(
+        [html.Br(),
+         dbc.Row([
+             dbc.Col(
+                 [html.P("Start date:", style={'color': '#cccccc'}),
+                  dcc.Input(
+                      id='start-day-input-advanced',
+                      placeholder='DD/MM/YYYY',
+                      type='text',
+                      value=(datetime.datetime.today() - relativedelta(years=1)).strftime(
+                          '%d/%m/%Y'),
+                      style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                             'color': '#cccccc'}
+                  )], width='auto'
+             ),
+             dbc.Col(
+                 [html.P("End Date:", style={'color': '#cccccc'}),
+                  dcc.Input(
+                      id='end-day-input-advanced',
+                      placeholder='DD/MM/YYYY',
+                      type='text',
+                      value=datetime.datetime.today().strftime('%d/%m/%Y'),
+                      style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                             'color': '#cccccc'}
+                  )], width='auto'
+             ),
+         ]
+         )]
+    ),
+    html.Hr(),
+
+    # SIDEBAR N SIMUlATIONS
+    html.Div(
+        [html.P("Select number of simulations:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-simulations-input-advanced',
+                     placeholder=10,
+                     type='tel',
+                     value=10,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-simulations-slider-advanced',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=10,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
+    html.Hr(),
+
+    # SIDEBAR MODELS MATRIX
+    html.Div([
+        html.P('Average days per one model:', style={'color': '#cccccc'}),
+        dbc.Row([
+            dbc.Col([
+                dash_table.DataTable(
+                    id='sidebar-table-1',
+                    columns=[{'name': 'worker/model type', 'id': 'column-type', 'editable': False, 'renamable': False},
+                             {'name': 'BaseModel', 'id': 'BaseModel', 'deletable': True, 'renamable': False},
+                             ],
+                    data=[{'column-type': 'BaseWorker', 'BaseModel': '14'}],
+                    editable=True,
+                    row_deletable=True,
+                    style_header={'backgroundColor': '#222222',
+                                  'border': '1px solid #cccccc'},
+                    style_cell={
+                        'backgroundColor': '#111111',
+                        'color': '#cccccc',
+                        'border': '1px solid #cccccc'},
+                    style_data_conditional=[{
+                        'if': {'column_editable': False},
+                        'backgroundColor': '#222222',
+                        'color': '#cccccc'
+                    }],
+                    style_header_conditional=[{
+                        'if': {'column_editable': False},
+                        'backgroundColor': '#222222',
+                        'color': '#cccccc'
+                    }],
+                    css=[{'selector': 'td.cell--selected, td.focused', 'rule': 'background-color: #111111 !important;'},
+                         {'selector': 'td.cell--selected *, td.focused *', 'rule': 'color: #cccccc !important;'}]
+                ),
+            ], width=11),
+        ], justify="center"),
+
+        html.P(),
+        html.P('Std days per one model::', style={'color': '#cccccc'}),
+        dbc.Row([
+            dbc.Col([
+                dash_table.DataTable(
+                    id='sidebar-table-2',
+                    columns=[{'name': 'worker/model type', 'id': 'column-type', 'editable': False, 'renamable': False},
+                             {'name': 'BaseModel', 'id': 'BaseModel', 'deletable': True, 'renamable': False},
+                             ],
+                    data=[{'column-type': 'BaseWorker', 'BaseModel': '2'}],
+                    editable=True,
+                    row_deletable=True,
+                    style_header={'backgroundColor': '#222222',
+                                  'border': '1px solid #cccccc'},
+                    style_cell={
+                        'backgroundColor': '#111111',
+                        'color': '#cccccc',
+                        'border': '1px solid #cccccc'},
+                    style_data_conditional=[{
+                        'if': {'column_editable': False},
+                        'backgroundColor': '#222222',
+                        'color': '#cccccc'
+                    }],
+                    style_header_conditional=[{
+                        'if': {'column_editable': False},
+                        'backgroundColor': '#222222',
+                        'color': '#cccccc'
+                    }],
+                    css=[{'selector': 'td.cell--selected, td.focused', 'rule': 'background-color: #111111 !important;'},
+                         {'selector': 'td.cell--selected *, td.focused *', 'rule': 'color: #cccccc !important;'}]
+                ),
+            ], width=11),
+        ], justify="center"),
+
+        html.P(),
+        dbc.Row([
+            dbc.Col([
+                dcc.Input(
+                    id='adding-row-input',
+                    placeholder='Enter worker type...',
+                    value='',
+                    size='14',
+                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                           'color': '#cccccc'}
+                ),
+                dbc.Button(html.I(className="fas fa-plus-circle fa-2x", style={'color': "#5bc0de"}),
+                           n_clicks=0, id='adding-row-button', color="link"),
+            ]),
+            dbc.Col([
+                dcc.Input(
+                    id='adding-column-input',
+                    placeholder='Enter model type...',
+                    value='',
+                    size='14',
+                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                           'color': '#cccccc'}
+                ),
+                dbc.Button(html.I(className="fas fa-plus-circle fa-2x", style={'color': "#5bc0de"}),
+                           n_clicks=0, id='adding-column-button', color="link"),
+            ])
+        ]),
+    ]),
+
+    html.Hr(),
+
+    # SIDEBAR N WORKERS
+    html.P(html.Span(["And upload deltas if required ",
+                      html.Span(html.I(className="fas fa-exclamation-triangle"),
+                                style={'color': "#5bc0de"}
+                                ),
+                      ":"]),
+           style={'color': '#cccccc'},
+           id='warningIcon-advanced'),
+    dbc.Tooltip(
+        dcc.Markdown('''
+             Please, upload a CSV file with data about changes/deltas in number of workers;
+
+             CSV must contain two comma-separated columns 'date' and 'delta'. Values of 'date' must be business days in
+              dd/mm/yyyy format. Values of 'delta' must be positive or negative integers;
+
+             Warning: minimal interval between changes in number of workers should be less than any model execution.
+              All models will be adjusted. Use "Advanced settings" tab for more precise model.
+                                            '''),
+        target=f"warningIcon",
+        placement='right',
+        style={'font-size': '200%', 'textAlign': 'left', }),
+    dcc.Upload(
+        id='upload-data-advanced',
+        children=html.Div([
+            'Drag and Drop or Click and Select Files',
+        ]),
+        multiple=False,
+        style={'width': '100%',
+               'height': '10%',
+               'lineHeight': '200%',
+               'borderWidth': '2px',
+               'borderStyle': 'dashed',
+               'borderRadius': '2px',
+               'borderColor': '#444444',
+               'textAlign': 'center',
+               }),
+    html.Div(id='output-data-upload-advanced', style={'color': '#444444'}),
+    html.Div(id='output-data-upload-hidden-advanced', style={'display': 'none'}),
+    html.Hr(),
+
+    # SIDEBAR MODELS INCOME
+    html.P(html.Span(["Or upload data by day ",
+                      html.Span(html.I(className="fas fa-exclamation-triangle"),
+                                style={'color': "#5bc0de"}
+                                ),
+                      ":"]),
+           style={'color': '#cccccc'},
+           id='warningIcon2-advanced'),
+    dbc.Tooltip(
+        dcc.Markdown('''
+        Please, upload a CSV file with data about number of models;
+
+        CSV must contain two comma-separated columns 'date' and 'volume'. Values of 'date' must be in dd/mm/yyyy format.
+         Values of 'volume' must be positive
+          integers;
+
+        Please, verify that models come only at business days.
+                                            '''),
+        target=f"warningIcon2",
+        placement='right',
+        style={'font-size': '200%', 'textAlign': 'left', }),
+    dcc.Upload(
+        id='upload-data2-advanced',
+        children=html.Div([
+            'Drag and Drop or Click and Select Files',
+        ]),
+        multiple=False,
+        style={'width': '100%',
+               'height': '10%',
+               'lineHeight': '200%',
+               'borderWidth': '2px',
+               'borderStyle': 'dashed',
+               'borderRadius': '2px',
+               'borderColor': '#444444',
+               'textAlign': 'center',
+               }),
+    html.Div(id='output-data-upload2-advanced', style={'color': '#444444'}),
+    html.Div(id='output-data-upload-hidden2-advanced', style={'display': 'none'}),
+    html.Hr(),
+
+    # SIDEBAR MODELS IN QUEUE
+    html.Div(
+
+        [html.P("Select number of models in queue already:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-models-in-queue-input-advanced',
+                     placeholder=100,
+                     type='tel',
+                     value=100,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-models-in-queue-slider-advanced',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=100,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
+    html.P(),
+    # SIDEBAR MODELS IN PROGRESS
+    html.Div(
+        [html.P("Select number of models in progress already:",
+                style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='n-models-in-progress-input-advanced',
+                     placeholder=100,
+                     type='tel',
+                     value=50,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='n-models-in-progress-slider-advanced',
+                     min=0,
+                     max=1000,
+                     step=10,
+                     value=50,
+                     marks={
+                         0: '0',
+                         200: '200',
+                         400: '400',
+                         600: '600',
+                         800: '800',
+                         1000: '1000',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
+    html.Hr(),
+    html.Div(
+        [html.P(style={'color': '#FF0000'}, id='warning-advanced')],
+
+    ),
+
+    # SUBMIT BOTTOM
+    # html.Br(),
+
+    dbc.Button(
+        "Submit",
+        color="primary",
+        block=True,
+        id="button-advanced",
+        className="mb-3",
+    )]))
+
+contentArea = html.Div(
+    children=dcc.Loading([
+        dbc.Row([
+            dbc.Col([
+                dcc.Graph(id='graph-1')
+            ], width='6'),
+            dbc.Col([
+                dcc.Graph(id='graph-2')
+            ], width='6'),
+        ]),
+        dbc.Row([
+            dbc.Col([
+                dcc.Graph(id='graph-3')
+            ], width='6'),
+            dbc.Col([
+                dcc.Graph(id='graph-4')
+            ], width='6'),
+        ]),
+    ], style={'position': 'fixed', 'left': '62.5%', 'top': '40%'}),
+    style=CONTENT_STYLE, id='content'
+)
+
+app.layout = html.Div([dcc.Location(id="url"),
+
+                       # SIDEBAR HEADER
+                       html.Div([html.H2("Simmodel Dashboard", className="display-4", style={'color': '#cccccc'}),
+                                 html.Div([dcc.Tabs([sidebarFastTab, sidebarAdvancedTab])])],
+                                style=SIDEBAR_STYLE),
 
                        # CONTENT
-                       html.Div(children=dcc.Loading([
-                           dbc.Row([
-                               dbc.Col([
-                                   dcc.Graph(id='graph-1')
-                               ], width='6'),
-                               dbc.Col([
-                                   dcc.Graph(id='graph-2')
-                               ], width='6'),
-                           ]),
-                           dbc.Row([
-                               dbc.Col([
-                                   dcc.Graph(id='graph-3')
-                               ], width='6'),
-                               dbc.Col([
-                                   dcc.Graph(id='graph-4')
-                               ], width='6'),
-                           ]),
-                       ], style={'position': 'fixed', 'left': '62.5%', 'top': '40%'}),
-                           style=CONTENT_STYLE, id='content'
-                       ),
+                       contentArea
 
                        ],
                       )
@@ -510,14 +834,20 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers, nWorke
                   modelsIncome, modelsIncomeDict, initialQueueSize, initialInprogressSize,
                   avgWorkDaysPerModel, sdWorkDaysPerModel):
     try:
-        nWorkersDF = pd.DataFrame(eval(nWorkersDict))
+        if eval(nWorkersDict) is not None:
+            nWorkersDF = pd.DataFrame(eval(nWorkersDict))
+        else:
+            nWorkersDF = None
     except:
         nWorkersDF = None
 
     try:
-        modelsIncomeDF = pd.DataFrame(eval(modelsIncomeDict))
+        if eval(modelsIncomeDict) is not None:
+            modelsIncomeDF = pd.DataFrame(eval(modelsIncomeDict))
+        else:
+            modelsIncomeDF = None
     except:
-        modelsIncomeDF = None
+        nWorkersDF = None
 
     if n_clicks is not None:
         df = qdc.sm_main(int(simulationsNum), int(nWorkers), nWorkersDF,
@@ -638,6 +968,51 @@ def update_output(contents, filename, last_modified):
             return 'There was an error processing this file, try more.', 'None'
     else:
         return '', 'None'
+
+
+@app.callback(
+    [Output('sidebar-table-1', 'data'),
+     Output('sidebar-table-2', 'data')],
+    [Input('adding-row-button', 'n_clicks')],
+    [State('adding-row-input', 'value'),
+     State('sidebar-table-1', 'data'),
+     State('sidebar-table-1', 'columns'),
+     State('sidebar-table-2', 'data'),
+     State('sidebar-table-2', 'columns')
+     ])
+def add_row(n_clicks, row_input, existing_rows_1, existing_columns_1, existing_rows_2, existing_columns_2):
+    if n_clicks > 0:
+        d1, d2 = {}, {}
+        for c in existing_columns_1:
+            if c['id'] == 'column-type':
+                d1[c['id']] = row_input
+            else:
+                d1[c['id']] = ''
+        for c in existing_columns_2:
+            if c['id'] == 'column-type':
+                d2[c['id']] = row_input
+            else:
+                d2[c['id']] = ''
+        existing_rows_1.append(d1)
+        existing_rows_2.append(d2)
+    return existing_rows_1, existing_rows_2
+
+
+@app.callback(
+    [Output('sidebar-table-1', 'columns'),
+     Output('sidebar-table-2', 'columns')],
+    [Input('adding-column-button', 'n_clicks')],
+    [State('adding-column-input', 'value'),
+     State('sidebar-table-1', 'columns'),
+     State('sidebar-table-2', 'columns')])
+def update_columns(n_clicks, value, existing_columns_1, existing_columns_2):
+    if n_clicks > 0:
+        existing_columns_1.append({
+            'id': value, 'name': value,
+            'renamable': False, 'deletable': True
+        })
+        existing_columns_2 = existing_columns_1
+    return existing_columns_1, existing_columns_2
 
 
 if __name__ == '__main__':
