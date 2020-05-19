@@ -388,6 +388,7 @@ sidebarFastTab = dcc.Tab(label='Fast settings', children=html.Div([
         block=True,
         id="button",
         className="mb-3",
+        n_clicks=0
     )]))
 
 sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
@@ -497,7 +498,7 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
         ], justify="center"),
 
         html.P(),
-        html.P('Std days per one model::', style={'color': '#cccccc'}),
+        html.P('Std days per one model:', style={'color': '#cccccc'}),
         dbc.Row([
             dbc.Col([
                 dash_table.DataTable(
@@ -562,7 +563,7 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
     html.Hr(),
 
     # SIDEBAR N WORKERS
-    html.P(html.Span(["And upload deltas if required ",
+    html.P(html.Span(["Upload number of workers ",
                       html.Span(html.I(className="fas fa-exclamation-triangle"),
                                 style={'color': "#5bc0de"}
                                 ),
@@ -571,15 +572,13 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
            id='warningIcon-advanced'),
     dbc.Tooltip(
         dcc.Markdown('''
-             Please, upload a CSV file with data about changes/deltas in number of workers;
+             Please, upload a CSV file with data about number of workers by types;
 
-             CSV must contain two comma-separated columns 'date' and 'delta'. Values of 'date' must be business days in
-              dd/mm/yyyy format. Values of 'delta' must be positive or negative integers;
-
-             Warning: minimal interval between changes in number of workers should be less than any model execution.
-              All models will be adjusted. Use "Advanced settings" tab for more precise model.
+             CSV must contain comma-separated columns 'date', 'worker_type_1', 'worker_type_2', etc. 
+             Where 'worker_type_1', 'worker_type_2', etc. are your types of workers.
+             Values of 'date' must be business days in dd/mm/yyyy format.
                                             '''),
-        target=f"warningIcon",
+        target=f"warningIcon-advanced",
         placement='right',
         style={'font-size': '200%', 'textAlign': 'left', }),
     dcc.Upload(
@@ -602,7 +601,7 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
     html.Hr(),
 
     # SIDEBAR MODELS INCOME
-    html.P(html.Span(["Or upload data by day ",
+    html.P(html.Span(["Upload income models ",
                       html.Span(html.I(className="fas fa-exclamation-triangle"),
                                 style={'color': "#5bc0de"}
                                 ),
@@ -613,13 +612,13 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
         dcc.Markdown('''
         Please, upload a CSV file with data about number of models;
 
-        CSV must contain two comma-separated columns 'date' and 'volume'. Values of 'date' must be in dd/mm/yyyy format.
-         Values of 'volume' must be positive
-          integers;
+        CSV must contain comma-separated columns 'date', 'model_type_1', 'model_type_2', etc. 
+        Where 'worker_type_1', 'worker_type_2', etc. are your types of workers.
+        Values of 'date' must be in dd/mm/yyyy format.
 
         Please, verify that models come only at business days.
-                                            '''),
-        target=f"warningIcon2",
+        '''),
+        target=f"warningIcon2-advanced",
         placement='right',
         style={'font-size': '200%', 'textAlign': 'left', }),
     dcc.Upload(
@@ -642,85 +641,63 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
     html.Hr(),
 
     # SIDEBAR MODELS IN QUEUE
-    html.Div(
+    html.P("Select number of models in queue/progress already:", style={'color': '#cccccc'}),
+    dbc.Row([
+        dbc.Col([
+            dash_table.DataTable(
+                id='sidebar-table-3',
+                columns=[{'name': 'model type', 'id': 'column-type', 'editable': False, 'renamable': False},
+                         {'name': 'in progress', 'id': 'in-progress', 'deletable': False, 'renamable': False},
+                         {'name': 'in queue', 'id': 'in-queue', 'deletable': False, 'renamable': False},
+                         ],
+                data=[{'column-type': 'BaseModel', 'in-progress': '50', 'in-queue': '150'}],
+                editable=True,
+                row_deletable=True,
+                style_header={'backgroundColor': '#222222',
+                              'border': '1px solid #cccccc'},
+                style_cell={
+                    'backgroundColor': '#111111',
+                    'color': '#cccccc',
+                    'border': '1px solid #cccccc'},
+                style_data_conditional=[{
+                    'if': {'column_editable': False},
+                    'backgroundColor': '#222222',
+                    'color': '#cccccc'
+                }],
+                style_header_conditional=[{
+                    'if': {'column_editable': False},
+                    'backgroundColor': '#222222',
+                    'color': '#cccccc'
+                }],
+                css=[{'selector': 'td.cell--selected, td.focused', 'rule': 'background-color: #111111 !important;'},
+                     {'selector': 'td.cell--selected *, td.focused *', 'rule': 'color: #cccccc !important;'}]
+            ),
+        ], width=11),
+    ], justify="center"),
 
-        [html.P("Select number of models in queue already:", style={'color': '#cccccc'}),
-         dbc.Row([
-             dbc.Col(
-                 dcc.Input(
-                     id='n-models-in-queue-input-advanced',
-                     placeholder=100,
-                     type='tel',
-                     value=100,
-                     size='2',
-                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                            'color': '#cccccc'}
-                 ), width='auto'
-             ),
-             dbc.Col(
-                 dcc.Slider(
-                     id='n-models-in-queue-slider-advanced',
-                     min=0,
-                     max=1000,
-                     step=10,
-                     value=100,
-                     marks={
-                         0: '0',
-                         200: '200',
-                         400: '400',
-                         600: '600',
-                         800: '800',
-                         1000: '1000',
-                     },
-                 )
-             )
-         ]
-         )]
-    ),
     html.P(),
-    # SIDEBAR MODELS IN PROGRESS
-    html.Div(
-        [html.P("Select number of models in progress already:",
-                style={'color': '#cccccc'}),
-         dbc.Row([
-             dbc.Col(
-                 dcc.Input(
-                     id='n-models-in-progress-input-advanced',
-                     placeholder=100,
-                     type='tel',
-                     value=50,
-                     size='2',
-                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
-                            'color': '#cccccc'}
-                 ), width='auto'
-             ),
-             dbc.Col(
-                 dcc.Slider(
-                     id='n-models-in-progress-slider-advanced',
-                     min=0,
-                     max=1000,
-                     step=10,
-                     value=50,
-                     marks={
-                         0: '0',
-                         200: '200',
-                         400: '400',
-                         600: '600',
-                         800: '800',
-                         1000: '1000',
-                     },
-                 )
-             )
-         ]
-         )]
-    ),
+    dbc.Row([
+        dbc.Col([
+            dcc.Input(
+                id='adding-row-input-2',
+                placeholder='Enter model type...',
+                value='',
+                size='14',
+                style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                       'color': '#cccccc'}
+            ),
+            dbc.Button(html.I(className="fas fa-plus-circle fa-2x", style={'color': "#5bc0de"}),
+                       n_clicks=0, id='adding-row-button-2', color="link"),
+        ]),
+        dbc.Col('', width=6)
+    ]),
+
     html.Hr(),
-    html.Div(
-        [html.P(style={'color': '#FF0000'}, id='warning-advanced')],
 
-    ),
+    # SIDEBAR WARNINGS
+    html.Div(html.P(style={'color': '#FF0000'}, id='warning-advanced')),
 
-    # SUBMIT BOTTOM
+    # SUBMIT BUTTON
     # html.Br(),
 
     dbc.Button(
@@ -729,27 +706,11 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
         block=True,
         id="button-advanced",
         className="mb-3",
+        n_clicks=0
     )]))
 
 contentArea = html.Div(
-    children=dcc.Loading([
-        dbc.Row([
-            dbc.Col([
-                dcc.Graph(id='graph-1')
-            ], width='6'),
-            dbc.Col([
-                dcc.Graph(id='graph-2')
-            ], width='6'),
-        ]),
-        dbc.Row([
-            dbc.Col([
-                dcc.Graph(id='graph-3')
-            ], width='6'),
-            dbc.Col([
-                dcc.Graph(id='graph-4')
-            ], width='6'),
-        ]),
-    ], style={'position': 'fixed', 'left': '62.5%', 'top': '40%'}),
+    children=dcc.Loading([html.Div(id='main-content')], style={'position': 'fixed', 'left': '62.5%', 'top': '40%'}),
     style=CONTENT_STYLE, id='content'
 )
 
@@ -759,6 +720,9 @@ app.layout = html.Div([dcc.Location(id="url"),
                        html.Div([html.H2("Simmodel Dashboard", className="display-4", style={'color': '#cccccc'}),
                                  html.Div([dcc.Tabs([sidebarFastTab, sidebarAdvancedTab])])],
                                 style=SIDEBAR_STYLE),
+
+                       html.Div(id='n-clicks-catcher', style={'display': 'none'}),
+                       html.Div(id='n-clicks-catcher-advanced', style={'display': 'none'}),
 
                        # CONTENT
                        contentArea
@@ -770,6 +734,13 @@ app.layout = html.Div([dcc.Location(id="url"),
 @app.callback(
     dash.dependencies.Output('n-simulations-input', 'value'),
     [dash.dependencies.Input('n-simulations-slider', 'value')])
+def update_output(value):
+    return value
+
+
+@app.callback(
+    dash.dependencies.Output('n-simulations-input-advanced', 'value'),
+    [dash.dependencies.Input('n-simulations-slider-advanced', 'value')])
 def update_output(value):
     return value
 
@@ -813,13 +784,17 @@ def update_output(value1, value2):
     return value
 
 
-@app.callback([Output("graph-1", "figure"),
-               Output("graph-2", "figure"),
-               Output("graph-3", "figure"),
-               Output("graph-4", "figure"),
-               ],
-              [Input('button', 'n_clicks')],
-              [State('start-day-input', 'value'),
+@app.callback([Output("main-content", "children"),
+               Output("n-clicks-catcher", "children"),
+               Output("n-clicks-catcher-advanced", "children")],
+
+              [Input('button', 'n_clicks'),
+               Input('button-advanced', 'n_clicks')],
+
+              [State('n-clicks-catcher', 'children'),
+               State('n-clicks-catcher-advanced', 'children'),
+
+               State('start-day-input', 'value'),
                State('end-day-input', 'value'),
                State('n-simulations-input', 'value'),
                State('n-workers-input', 'value'),
@@ -829,103 +804,190 @@ def update_output(value1, value2):
                State('n-models-in-queue-input', 'value'),
                State('n-models-in-progress-input', 'value'),
                State('avg-days-per-model-input', 'value'),
-               State('std-days-per-model-input', 'value'), ])
-def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers, nWorkersDict,
+               State('std-days-per-model-input', 'value'),
+
+               State('start-day-input-advanced', 'value'),
+               State('end-day-input-advanced', 'value'),
+               State('n-simulations-input-advanced', 'value'),
+               State('sidebar-table-1', 'data'),
+               State('sidebar-table-2', 'data'),
+               State('output-data-upload-hidden-advanced', 'children'),
+               State('output-data-upload-hidden2-advanced', 'children'),
+               State('sidebar-table-2', 'data'),
+               ])
+def update_output(n_clicks, n_clicks_advanced,
+
+                  n_clicks_catched, n_clicks_catched_advanced,
+
+                  startDate, endDate, simulationsNum, nWorkers, nWorkersDict,
                   modelsIncome, modelsIncomeDict, initialQueueSize, initialInprogressSize,
-                  avgWorkDaysPerModel, sdWorkDaysPerModel):
-    try:
-        if eval(nWorkersDict) is not None:
-            nWorkersDF = pd.DataFrame(eval(nWorkersDict))
-        else:
-            nWorkersDF = None
-    except:
-        nWorkersDF = None
+                  avgWorkDaysPerModel, sdWorkDaysPerModel,
 
-    try:
-        if eval(modelsIncomeDict) is not None:
-            modelsIncomeDF = pd.DataFrame(eval(modelsIncomeDict))
-        else:
-            modelsIncomeDF = None
-    except:
-        nWorkersDF = None
+                  startDateAdvanced, endDateAdvanced, simulationsNumAdvanced,
+                  avgModelMartixAdvanced, stdModelMartixAdvanced,
+                  workersNumDictAdvanced, modelsIncomeDictAdvanced,
+                  initialQueueInprogressMatrixAdvanced
+                  ):
 
-    if n_clicks is not None:
-        df = qdc.sm_main(int(simulationsNum), int(nWorkers), nWorkersDF,
-                         int(modelsIncome), modelsIncomeDF, int(initialQueueSize), int(initialInprogressSize),
-                         int(avgWorkDaysPerModel), float(sdWorkDaysPerModel),
-                         datetime.datetime.strptime(startDate, '%d/%m/%Y'),
-                         datetime.datetime.strptime(endDate, '%d/%m/%Y'),
-                         )
+    if n_clicks_catched is None and n_clicks_catched_advanced is None:
+        n_clicks_catched, n_clicks_catched_advanced = 0, 0
+
+    if n_clicks > n_clicks_catched:
+        basic_model_flag = True
+        advanced_model_flag = False
+    elif n_clicks_advanced > n_clicks_catched_advanced:
+        basic_model_flag = False
+        advanced_model_flag = True
     else:
-        df = pd.read_csv('./assets/sample_df.csv', sep=',')
+        basic_model_flag = False
+        advanced_model_flag = False
 
-    layout = go.Layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font={'color': '#cccccc'},
-        xaxis=dict(showgrid=False),
-        yaxis=dict(gridcolor='#222222', zerolinecolor='#222222')
+    n_clicks_catched = n_clicks
+    n_clicks_catched_advanced = n_clicks_advanced
 
-    )
+    # BASIC MODEL
+    if advanced_model_flag is False:
+        if basic_model_flag is True and advanced_model_flag is False:
 
-    # GRAPH 1 (Models Dynamic)
-    fig1 = go.Figure(data=[
-        go.Bar(name='Income models',
-               x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
-               y=[df.loc[df['date'] == date, 'incomeNum'].mean() for date in df.date.unique()],
-               marker=go.bar.Marker(color='#0275d8', line=dict(width=0)),
-               ),
-        go.Bar(name='Models in Queue',
-               x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
-               y=[df.loc[df['date'] == date, 'queueNum'].mean() for date in df.date.unique()],
-               marker=go.bar.Marker(color='#d9534f', line=dict(width=0)),
-               ),
-        go.Bar(name='Models in progress',
-               x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
-               y=[df.loc[df['date'] == date, 'inProgressNum'].mean() for date in df.date.unique()],
-               marker=go.bar.Marker(color='#5bc0de', line=dict(width=0)),
-               ),
-        go.Bar(name='Done models',
-               x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
-               y=[df.loc[df['date'] == date, 'doneNum'].mean() for date in df.date.unique()],
-               marker=go.bar.Marker(color='#5cb85c', line=dict(width=0)),
-               ),
-    ], layout=layout)
-    fig1.update_layout(title_text='Models Dynamic (average)', title_x=0.5)
+            try:
+                if eval(nWorkersDict) is not None:
+                    nWorkersDF = pd.DataFrame(eval(nWorkersDict))
+                else:
+                    nWorkersDF = None
+            except:
+                nWorkersDF = None
 
-    # GRAPH 2 (Queue Dynamics)
-    fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
-                                  name=datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y'),
-                                  line=dict(color='#0275d8'))
-                           for date in df.date.unique()],
-                     layout=layout)
-    fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
+            try:
+                if eval(modelsIncomeDict) is not None:
+                    modelsIncomeDF = pd.DataFrame(eval(modelsIncomeDict))
+                else:
+                    modelsIncomeDF = None
+            except:
+                nWorkersDF = None
 
-    # GRAPH 3 (Average Models Dynamics)
-    fig3 = go.Figure(data=[
-        go.Bar(name='Waiting Time',
-               x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
-               y=[df.loc[df['date'] == date, 'avgWaitingTime'].mean() for date in df.date.unique()],
-               marker=go.bar.Marker(color='#0275d8', line=dict(width=0)),
-               ),
-        go.Bar(name='Serving Time',
-               x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
-               y=[df.loc[df['date'] == date, 'avgServingTime'].mean() for date in df.date.unique()],
-               marker=go.bar.Marker(color='#d9534f', line=dict(width=0)),
-               ),
-    ], layout=layout)
-    fig3.update_layout(barmode='stack')
-    fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
+            df = qdc.sm_main(int(simulationsNum), int(nWorkers), nWorkersDF,
+                             int(modelsIncome), modelsIncomeDF, int(initialQueueSize), int(initialInprogressSize),
+                             int(avgWorkDaysPerModel), float(sdWorkDaysPerModel),
+                             datetime.datetime.strptime(startDate, '%d/%m/%Y'),
+                             datetime.datetime.strptime(endDate, '%d/%m/%Y'),
+                             )
 
-    # GRAPH 4 (Models Time Till Done)
-    fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
-                                  name=datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y'),
-                                  line=dict(color='#0275d8'))
-                           for date in df.date.unique()],
-                     layout=layout)
-    fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
+        elif basic_model_flag is False and advanced_model_flag is False:
+            df = pd.read_csv('./assets/sample_df.csv', sep=',')
 
-    return fig1, fig2, fig3, fig4
+        layout = go.Layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font={'color': '#cccccc'},
+            xaxis=dict(showgrid=False),
+            yaxis=dict(gridcolor='#222222', zerolinecolor='#222222')
+
+        )
+
+        # GRAPH 1 (Models Dynamic)
+        fig1 = go.Figure(data=[
+            go.Bar(name='Income models',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'incomeNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#0275d8', line=dict(width=0)),
+                   ),
+            go.Bar(name='Models in Queue',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'queueNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#d9534f', line=dict(width=0)),
+                   ),
+            go.Bar(name='Models in progress',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'inProgressNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#5bc0de', line=dict(width=0)),
+                   ),
+            go.Bar(name='Done models',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'doneNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#5cb85c', line=dict(width=0)),
+                   ),
+        ], layout=layout)
+        fig1.update_layout(title_text='Models Dynamic (average)', title_x=0.5)
+
+        # GRAPH 2 (Queue Dynamics)
+        fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
+                                      name=datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y'),
+                                      line=dict(color='#0275d8'))
+                               for date in df.date.unique()],
+                         layout=layout)
+        fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
+
+        # GRAPH 3 (Average Models Dynamics)
+        fig3 = go.Figure(data=[
+            go.Bar(name='Waiting Time',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'avgWaitingTime'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#0275d8', line=dict(width=0)),
+                   ),
+            go.Bar(name='Serving Time',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'avgServingTime'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#d9534f', line=dict(width=0)),
+                   ),
+        ], layout=layout)
+        fig3.update_layout(barmode='stack')
+        fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
+
+        # GRAPH 4 (Models Time Till Done)
+        fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
+                                      name=datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y'),
+                                      line=dict(color='#0275d8'))
+                               for date in df.date.unique()],
+                         layout=layout)
+        fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
+
+        main_content = [dbc.Row([
+            dbc.Col([
+                dcc.Graph(figure=fig1)
+            ], width='6'),
+            dbc.Col([
+                dcc.Graph(figure=fig2)
+            ], width='6'),
+        ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=fig3)
+                ], width='6'),
+                dbc.Col([
+                    dcc.Graph(figure=fig4)
+                ], width='6'),
+            ])]
+
+    # ADVANCED MODEL
+    elif advanced_model_flag is True and basic_model_flag is False:
+
+        main_content = [dbc.Row([
+            dbc.Col([
+                dcc.Graph()
+            ], width='6'),
+            dbc.Col([
+                dcc.Graph()
+            ], width='6'),
+        ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph()
+                ], width='6'),
+                dbc.Col([
+                    dcc.Graph()
+                ], width='6'),
+            ])]
+
+        print(startDateAdvanced)
+        print(endDateAdvanced)
+        print(simulationsNumAdvanced)
+        print(avgModelMartixAdvanced)
+        print(stdModelMartixAdvanced)
+        print(workersNumDictAdvanced)
+        print(modelsIncomeDictAdvanced)
+        print(initialQueueInprogressMatrixAdvanced)
+
+    return main_content, n_clicks_catched, n_clicks_catched_advanced
 
 
 @app.callback([Output('output-data-upload', 'children'),
@@ -935,7 +997,6 @@ def update_output(n_clicks, startDate, endDate, simulationsNum, nWorkers, nWorke
               [State('upload-data', 'filename'),
                State('upload-data', 'last_modified')])
 def update_output(contents, filename, last_modified):
-    print(filename)
     if contents is not None:
         try:
             content_type, content_string = contents.split(',')
@@ -956,7 +1017,6 @@ def update_output(contents, filename, last_modified):
               [State('upload-data2', 'filename'),
                State('upload-data2', 'last_modified')])
 def update_output(contents, filename, last_modified):
-    print(filename)
     if contents is not None:
         try:
             content_type, content_string = contents.split(',')
@@ -1013,6 +1073,24 @@ def update_columns(n_clicks, value, existing_columns_1, existing_columns_2):
         })
         existing_columns_2 = existing_columns_1
     return existing_columns_1, existing_columns_2
+
+
+@app.callback(
+    Output('sidebar-table-3', 'data'),
+    [Input('adding-row-button-2', 'n_clicks')],
+    [State('adding-row-input-2', 'value'),
+     State('sidebar-table-3', 'data'),
+     State('sidebar-table-3', 'columns')])
+def update_columns(n_clicks, row_input, existing_rows_1, existing_columns_1):
+    if n_clicks > 0:
+        d1 = {}
+        for c in existing_columns_1:
+            if c['id'] == 'column-type':
+                d1[c['id']] = row_input
+            else:
+                d1[c['id']] = ''
+        existing_rows_1.append(d1)
+    return existing_rows_1
 
 
 if __name__ == '__main__':
