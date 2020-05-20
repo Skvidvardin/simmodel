@@ -431,24 +431,22 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
         del _modelsIncomeDF, inputDataModels
 
     # WORKERS PROCESSING
-    if workersNumDF is not None:
+    workersNumDF['date'] = pd.to_datetime(workersNumDF['date'], format='%d/%m/%Y')
+    workersNumDF['date'] = workersNumDF['date'].map(dates_straight_mapper)
+    workersNumDF = workersNumDF.sort_values('date')
 
-        workersNumDF['date'] = pd.to_datetime(workersNumDF['date'], format='%d/%m/%Y')
-        workersNumDF['date'] = workersNumDF['date'].map(dates_straight_mapper)
-        workersNumDF = workersNumDF.sort_values('date')
+    if 0 not in workersNumDF['date']:
+        workersNumDF = pd.concat([pd.DataFrame([0 for _ in range(len(workersNumDF.columns))],
+                                               columns=workersNumDF.columns),
+                                  workersNumDF]).reset_index(drop=True)
 
-        if 0 not in workersNumDF['date']:
-            workersNumDF = pd.concat([pd.DataFrame([0 for _ in range(len(workersNumDF.columns))],
-                                                   columns=workersNumDF.columns),
-                                      workersNumDF]).reset_index(drop=True)
+    knot_locations_by_type = {}
+    servers_activity_num_by_type = {}
 
-        knot_locations_by_type = {}
-        servers_activity_num_by_type = {}
-
-        for c in workersNumDF.columns:
-            if c != 'date':
-                knot_locations_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)['date'].tolist()[1:]
-                servers_activity_num_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)[c].tolist()
+    for c in workersNumDF.columns:
+        if c != 'date':
+            knot_locations_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)['date'].tolist()[1:]
+            servers_activity_num_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)[c].tolist()
 
     # SIMMULATIONS
     modelTypes = [c for c in avgModelMartix.columns if c != 'WorkerType']
@@ -460,7 +458,7 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
 
         for wt in avgModelMartix['WorkerType'].unique():
             for mt in modelTypes:
-                inputData.loc[inputData['model_type'] == mt, 'worker_type_' + wt] = \
+                inputData.loc[inputData['model_type'] == mt, 'service_time_' + wt] = \
                     np.random.gamma((avgModelMartix.loc[avgModelMartix['WorkerType'] == wt, mt].values[0] ** 2) /
                                     (stdModelMartix.loc[stdModelMartix['WorkerType'] == wt, mt].values[0] ** 2),
                                     (stdModelMartix.loc[stdModelMartix['WorkerType'] == wt, mt].values[0] ** 2) /
@@ -468,10 +466,15 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
                                     len(inputData.loc[inputData['model_type'] == mt]))
 
         inputData['input_mult'] = 1
-        inputData.loc[inputData['model_input_type'] == 'initialInprogress', 'input_mult'] = \
-            np.random.uniform(0, 1, initialInprogressSize)
+        inputData.loc[inputData['model_input_type'] == 'initialInProgress', 'input_mult'] = \
+            np.random.uniform(0, 1, len(inputData.loc[inputData['model_input_type'] == 'initialInProgress']))
 
-        inputData['service_time'] = inputData['service_time'] * inputData['input_mult']
+        for wt in avgModelMartix['WorkerType'].unique():
+            inputData['service_time_' + wt] = inputData['service_time_' + wt] * inputData['input_mult']
+
+        _inputData = inputData.drop(columns=['input_mult', 'model_input_type', 'model_type'])
+
+        outputData = qdc_algo_3(_inputData.to_numpy(dtype=float), knot_locations_by_type, servers_activity_num_by_type)
 
     return -1
 
