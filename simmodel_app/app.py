@@ -813,7 +813,7 @@ def update_output(value1, value2):
                State('sidebar-table-2', 'data'),
                State('output-data-upload-hidden-advanced', 'children'),
                State('output-data-upload-hidden2-advanced', 'children'),
-               State('sidebar-table-2', 'data'),
+               State('sidebar-table-3', 'data'),
                ])
 def update_output(n_clicks, n_clicks_advanced,
 
@@ -981,11 +981,13 @@ def update_output(n_clicks, n_clicks_advanced,
         print(startDateAdvanced)
         print(endDateAdvanced)
         print(simulationsNumAdvanced)
-        print(avgModelMartixAdvanced)
-        print(stdModelMartixAdvanced)
+        print(pd.DataFrame(avgModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'}))
+        print(pd.DataFrame(stdModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'}))
         print(workersNumDictAdvanced)
         print(modelsIncomeDictAdvanced)
-        print(initialQueueInprogressMatrixAdvanced)
+        print(pd.DataFrame(initialQueueInprogressMatrixAdvanced).rename(columns={'column-type': 'WorkerType'}))
+
+        qdc.sm_advanced_main()
 
     return main_content, n_clicks_catched, n_clicks_catched_advanced
 

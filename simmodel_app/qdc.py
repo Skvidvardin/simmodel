@@ -113,9 +113,23 @@ def qdc_algo_3(arrival_serving_time, knot_locations, servers_activity_indicators
 
 
 def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, initialQueueSize, initialInprogressSize,
-               avgWorkDaysPerModel, sdWorkDaysPerModel,
-               startDate, endDate):
+            avgWorkDaysPerModel, sdWorkDaysPerModel,
+            startDate, endDate):
+    """
 
+    :param simulationsNum:
+    :param nWorkers:
+    :param nWorkersDF:
+    :param modelsIncome:
+    :param modelsIncomeDF:
+    :param initialQueueSize:
+    :param initialInprogressSize:
+    :param avgWorkDaysPerModel:
+    :param sdWorkDaysPerModel:
+    :param startDate:
+    :param endDate:
+    :return:
+    """
     inputData = pd.DataFrame(columns=['arrival_time', 'model_input_type'])
     resultData = pd.DataFrame(columns=['arrival_time', 'service_time', 'done_time', 'sim'])
 
@@ -329,3 +343,13 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
             result = result.merge(values[key], 'left', on=['sim', 'date'])
 
     return result
+
+
+def sm_advanced_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, initialQueueSize,
+                     initialInprogressSize,
+                     avgWorkDaysPerModel, sdWorkDaysPerModel,
+                     startDate, endDate):
+
+
+
+    return -1
