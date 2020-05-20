@@ -345,11 +345,152 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
     return result
 
 
-def sm_advanced_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, initialQueueSize,
-                     initialInprogressSize,
-                     avgWorkDaysPerModel, sdWorkDaysPerModel,
-                     startDate, endDate):
+def sm_advanced_main(startDate, endDate, simulationsNum,
+                     avgModelMartix, stdModelMartix,
+                     workersNumDF, modelsIncomeDF,
+                     initialQueueInprogressMatrix):
 
+    inputData = pd.DataFrame(columns=['arrival_time', 'model_input_type', 'model_type'])
+    resultData = pd.DataFrame(columns=['arrival_time', 'service_time', 'done_time', 'sim'])
 
+    if not startDate.weekday() < 5:
+        while startDate.weekday() != 1:
+            startDate = startDate + datetime.timedelta(days=1)
+
+    if not endDate.weekday() < 5:
+        while endDate.weekday() != 4:
+            endDate = endDate - datetime.timedelta(days=1)
+
+    dates = pd.bdate_range(start=startDate, end=endDate, normalize=True, closed='left').to_pydatetime().tolist()
+    dates_d = pd.bdate_range(start=startDate, end=endDate + datetime.timedelta(days=365),
+                             normalize=True, closed='left').to_pydatetime().tolist()
+
+    dates_straight_mapper = dict(zip(dates, list(range(len(dates)))))
+    dates_inverse_mapper = dict(zip(list(range(len(dates_d))), dates_d))
+    dates_unique_months = pd.DataFrame([[date.month, date.year] for date in dates],
+                                       columns=['month', 'year']).drop_duplicates()
+    dates_unique_months = dates_unique_months.sort_values(['year', 'month'], ascending=True)
+
+    initialQueueInprogressMatrix = initialQueueInprogressMatrix.set_index('ModelType')
+
+    # IN PROGRESS MODELS
+    initialQueueInprogressMatrix['InProgress'] = initialQueueInprogressMatrix['InProgress'].astype(int)
+    if (initialQueueInprogressMatrix['InProgress'] > 0).any():
+
+        inputDataInProgress = pd.DataFrame(columns=['arrival_time', 'model_input_type', 'model_type'])
+
+        for i in initialQueueInprogressMatrix.index:
+            for _ in range(initialQueueInprogressMatrix.loc[i, 'InProgress']):
+
+                inputDataInProgress = inputDataInProgress\
+                    .append(pd.DataFrame([[0, 'initialInProgress', i]],
+                                         columns=['arrival_time', 'model_input_type', 'model_type']),
+                            ignore_index=True)
+
+        inputDataInProgress = inputDataInProgress.sample(frac=1).reset_index(drop=True)
+        inputData = inputData.append(inputDataInProgress, ignore_index=True)
+        del inputDataInProgress
+
+    # IN QUEUE MODELS
+    initialQueueInprogressMatrix['InQueue'] = initialQueueInprogressMatrix['InQueue'].astype(int)
+    if (initialQueueInprogressMatrix['InQueue'] > 0).any():
+
+        inputDataInQueue = pd.DataFrame(columns=['arrival_time', 'model_input_type', 'model_type'])
+
+        for i in initialQueueInprogressMatrix.index:
+            for _ in range(initialQueueInprogressMatrix.loc[i, 'InQueue']):
+                inputDataInQueue = inputDataInQueue \
+                    .append(pd.DataFrame([[0, 'initialInQueue', i]],
+                                         columns=['arrival_time', 'model_input_type', 'model_type']),
+                            ignore_index=True)
+
+        inputDataInQueue = inputDataInQueue.sample(frac=1).reset_index(drop=True)
+        inputData = inputData.append(inputDataInQueue, ignore_index=True)
+        del inputDataInQueue
+
+    # MODELS INCOME
+    if modelsIncomeDF is not None:
+
+        inputDataModels = pd.DataFrame(columns=['arrival_time', 'model_input_type', 'model_type'])
+
+        modelsIncomeDF = modelsIncomeDF.rename(columns={'date': 'arrival_time'})
+        modelsIncomeDF['arrival_time'] = pd.to_datetime(modelsIncomeDF['arrival_time'], format='%d/%m/%Y')
+        modelsIncomeDF['arrival_time'] = modelsIncomeDF['arrival_time'].map(dates_straight_mapper)
+
+        for c in modelsIncomeDF.columns:
+            if c != 'arrival_time':
+                _modelsIncomeDF = modelsIncomeDF[['arrival_time', c]]\
+                    .loc[modelsIncomeDF[['arrival_time', c]].index.repeat(modelsIncomeDF[c])]
+                _modelsIncomeDF['model_input_type'] = 'Income'
+                _modelsIncomeDF['model_type'] = c
+                _modelsIncomeDF = _modelsIncomeDF[['arrival_time', 'model_input_type', 'model_type']]
+                inputDataModels = inputDataModels.append(_modelsIncomeDF, ignore_index=True)
+
+        inputDataModels = inputDataModels.sample(frac=1).sort_values('arrival_time', ignore_index=True)
+        inputData = inputData.append(inputDataModels, ignore_index=True)
+        del _modelsIncomeDF, inputDataModels
+
+    # WORKERS PROCESSING
+    if workersNumDF is not None:
+
+        workersNumDF['date'] = pd.to_datetime(workersNumDF['date'], format='%d/%m/%Y')
+        workersNumDF['date'] = workersNumDF['date'].map(dates_straight_mapper)
+        workersNumDF = workersNumDF.sort_values('date')
+
+        if 0 not in workersNumDF['date']:
+            workersNumDF = pd.concat([pd.DataFrame([0 for _ in range(len(workersNumDF.columns))],
+                                                   columns=workersNumDF.columns),
+                                      workersNumDF]).reset_index(drop=True)
+
+        knot_locations_by_type = {}
+        servers_activity_num_by_type = {}
+
+        for c in workersNumDF.columns:
+            if c != 'date':
+                knot_locations_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)['date'].tolist()[1:]
+                servers_activity_num_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)[c].tolist()
+
+    # SIMMULATIONS
+    modelTypes = [c for c in avgModelMartix.columns if c != 'WorkerType']
+    for c in modelTypes:
+        avgModelMartix[c] = avgModelMartix[c].astype(float)
+        stdModelMartix[c] = stdModelMartix[c].astype(float)
+
+    for sim in range(simulationsNum):
+
+        for wt in avgModelMartix['WorkerType'].unique():
+            for mt in modelTypes:
+                inputData.loc[inputData['model_type'] == mt, 'worker_type_' + wt] = \
+                    np.random.gamma((avgModelMartix.loc[avgModelMartix['WorkerType'] == wt, mt].values[0] ** 2) /
+                                    (stdModelMartix.loc[stdModelMartix['WorkerType'] == wt, mt].values[0] ** 2),
+                                    (stdModelMartix.loc[stdModelMartix['WorkerType'] == wt, mt].values[0] ** 2) /
+                                    (avgModelMartix.loc[avgModelMartix['WorkerType'] == wt, mt].values[0]),
+                                    len(inputData.loc[inputData['model_type'] == mt]))
+
+        inputData['input_mult'] = 1
+        inputData.loc[inputData['model_input_type'] == 'initialInprogress', 'input_mult'] = \
+            np.random.uniform(0, 1, initialInprogressSize)
+
+        inputData['service_time'] = inputData['service_time'] * inputData['input_mult']
 
     return -1
+
+
+startDate = datetime.datetime.strptime('20/05/2019', '%d/%m/%Y')
+endDate = datetime.datetime.strptime('20/05/2020', '%d/%m/%Y')
+simulationsNum = 100
+avgModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '14', 'BlackBoxModel': '30'},
+                               {'WorkerType': 'AdvancedWorker', 'BaseModel': '10', 'BlackBoxModel': '15'}])
+stdModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '2', 'BlackBoxModel': '5'},
+                               {'WorkerType': 'AdvancedWorker', 'BaseModel': '1', 'BlackBoxModel': '3'}])
+workersNumDF = pd.DataFrame([{'date': '20/05/2019', 'BaseWorker': 100, 'AdvancedWorker': 30},
+                             {'date': '19/07/2019', 'BaseWorker': 80, 'AdvancedWorker': 50}])
+modelsIncomeDF = pd.DataFrame([{'date': '20/06/2019', 'BaseModel': 600, 'BlackBoxModel': 150},
+                               {'date': '20/08/2019', 'BaseModel': 800, 'BlackBoxModel': 500}])
+initialQueueInprogressMatrix = pd.DataFrame([{'ModelType': 'BaseModel', 'InProgress': '60', 'InQueue': '100'},
+                                             {'ModelType': 'BlackBoxModel', 'InProgress': '10', 'InQueue': '50'}])
+
+a = sm_advanced_main(startDate, endDate, simulationsNum,
+                     avgModelMartix, stdModelMartix,
+                     workersNumDF, modelsIncomeDF,
+                     initialQueueInprogressMatrix)

@@ -978,16 +978,23 @@ def update_output(n_clicks, n_clicks_advanced,
                 ], width='6'),
             ])]
 
-        print(startDateAdvanced)
-        print(endDateAdvanced)
-        print(simulationsNumAdvanced)
-        print(pd.DataFrame(avgModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'}))
-        print(pd.DataFrame(stdModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'}))
-        print(workersNumDictAdvanced)
-        print(modelsIncomeDictAdvanced)
-        print(pd.DataFrame(initialQueueInprogressMatrixAdvanced).rename(columns={'column-type': 'WorkerType'}))
+        avgModelMartixAdvanced = pd.DataFrame(avgModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'})
+        stdModelMartixAdvanced = pd.DataFrame(stdModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'})
+        initialQueueInprogressMatrixAdvanced = pd.DataFrame(initialQueueInprogressMatrixAdvanced)\
+            .rename(columns={'column-type': 'ModelType', 'in-progress': 'InProgress', 'in-queue': 'InQueue'})
 
-        qdc.sm_advanced_main()
+        workersNumDFAdvanced = workersNumDictAdvanced
+        modelsIncomeDFAdvanced = modelsIncomeDictAdvanced
+
+        df = qdc.sm_advanced_main(datetime.datetime.strptime(startDateAdvanced, '%d/%m/%Y'),
+                                  datetime.datetime.strptime(endDateAdvanced, '%d/%m/%Y'),
+                                  int(simulationsNumAdvanced),
+                                  avgModelMartixAdvanced, stdModelMartixAdvanced,
+                                  workersNumDFAdvanced, modelsIncomeDFAdvanced,
+                                  initialQueueInprogressMatrixAdvanced)
+
+    else:
+        main_content = ''
 
     return main_content, n_clicks_catched, n_clicks_catched_advanced
 
