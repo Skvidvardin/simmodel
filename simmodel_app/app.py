@@ -961,30 +961,35 @@ def update_output(n_clicks, n_clicks_advanced,
     # ADVANCED MODEL
     elif advanced_model_flag is True and basic_model_flag is False:
 
-        main_content = [dbc.Row([
-            dbc.Col([
-                dcc.Graph()
-            ], width='6'),
-            dbc.Col([
-                dcc.Graph()
-            ], width='6'),
-        ]),
-            dbc.Row([
-                dbc.Col([
-                    dcc.Graph()
-                ], width='6'),
-                dbc.Col([
-                    dcc.Graph()
-                ], width='6'),
-            ])]
-
         avgModelMartixAdvanced = pd.DataFrame(avgModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'})
         stdModelMartixAdvanced = pd.DataFrame(stdModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'})
         initialQueueInprogressMatrixAdvanced = pd.DataFrame(initialQueueInprogressMatrixAdvanced)\
             .rename(columns={'column-type': 'ModelType', 'in-progress': 'InProgress', 'in-queue': 'InQueue'})
 
-        workersNumDFAdvanced = workersNumDictAdvanced
-        modelsIncomeDFAdvanced = modelsIncomeDictAdvanced
+        try:
+            if eval(workersNumDictAdvanced) is not None:
+                workersNumDFAdvanced = pd.DataFrame(eval(workersNumDictAdvanced))
+            else:
+                workersNumDFAdvanced = None
+        except:
+            workersNumDFAdvanced = None
+
+        try:
+            if eval(modelsIncomeDictAdvanced) is not None:
+                modelsIncomeDFAdvanced = pd.DataFrame(eval(modelsIncomeDictAdvanced))
+            else:
+                modelsIncomeDFAdvanced = None
+        except:
+            modelsIncomeDFAdvanced = None
+
+        print(datetime.datetime.strptime(startDateAdvanced, '%d/%m/%Y'))
+        print(datetime.datetime.strptime(endDateAdvanced, '%d/%m/%Y'))
+        print(int(simulationsNumAdvanced))
+        print(avgModelMartixAdvanced)
+        print(stdModelMartixAdvanced)
+        print(workersNumDFAdvanced)
+        print(modelsIncomeDFAdvanced)
+        print(initialQueueInprogressMatrixAdvanced)
 
         df = qdc.sm_advanced_main(datetime.datetime.strptime(startDateAdvanced, '%d/%m/%Y'),
                                   datetime.datetime.strptime(endDateAdvanced, '%d/%m/%Y'),
@@ -992,6 +997,89 @@ def update_output(n_clicks, n_clicks_advanced,
                                   avgModelMartixAdvanced, stdModelMartixAdvanced,
                                   workersNumDFAdvanced, modelsIncomeDFAdvanced,
                                   initialQueueInprogressMatrixAdvanced)
+
+        layout = go.Layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font={'color': '#cccccc'},
+            xaxis=dict(showgrid=False),
+            yaxis=dict(gridcolor='#222222', zerolinecolor='#222222')
+
+        )
+
+        # GRAPH 1 (Models Dynamic)
+        fig1 = go.Figure(data=[
+            go.Bar(name='Income models',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'incomeNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#0275d8', line=dict(width=0)),
+                   ),
+            go.Bar(name='Models in Queue',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'queueNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#d9534f', line=dict(width=0)),
+                   ),
+            go.Bar(name='Models in progress',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'inProgressNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#5bc0de', line=dict(width=0)),
+                   ),
+            go.Bar(name='Done models',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'doneNum'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#5cb85c', line=dict(width=0)),
+                   ),
+        ], layout=layout)
+        fig1.update_layout(title_text='Models Dynamic (average)', title_x=0.5)
+
+        # GRAPH 2 (Queue Dynamics)
+        fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
+                                      name=datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y'),
+                                      line=dict(color='#0275d8'))
+                               for date in df.date.unique()],
+                         layout=layout)
+        fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
+
+        # GRAPH 3 (Average Models Dynamics)
+        fig3 = go.Figure(data=[
+            go.Bar(name='Waiting Time',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'avgWaitingTime'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#0275d8', line=dict(width=0)),
+                   ),
+            go.Bar(name='Serving Time',
+                   x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
+                   y=[df.loc[df['date'] == date, 'avgServingTime'].mean() for date in df.date.unique()],
+                   marker=go.bar.Marker(color='#d9534f', line=dict(width=0)),
+                   ),
+        ], layout=layout)
+        fig3.update_layout(barmode='stack')
+        fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
+
+        # GRAPH 4 (Models Time Till Done)
+        fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
+                                      name=datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y'),
+                                      line=dict(color='#0275d8'))
+                               for date in df.date.unique()],
+                         layout=layout)
+        fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
+
+        main_content = [dbc.Row([
+            dbc.Col([
+                dcc.Graph(figure=fig1)
+            ], width='6'),
+            dbc.Col([
+                dcc.Graph(figure=fig2)
+            ], width='6'),
+        ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=fig3)
+                ], width='6'),
+                dbc.Col([
+                    dcc.Graph(figure=fig4)
+                ], width='6'),
+            ])]
 
     else:
         main_content = ''
@@ -1006,6 +1094,7 @@ def update_output(n_clicks, n_clicks_advanced,
               [State('upload-data', 'filename'),
                State('upload-data', 'last_modified')])
 def update_output(contents, filename, last_modified):
+    print(filename)
     if contents is not None:
         try:
             content_type, content_string = contents.split(',')
@@ -1026,6 +1115,7 @@ def update_output(contents, filename, last_modified):
               [State('upload-data2', 'filename'),
                State('upload-data2', 'last_modified')])
 def update_output(contents, filename, last_modified):
+    print(filename)
     if contents is not None:
         try:
             content_type, content_string = contents.split(',')
@@ -1037,6 +1127,8 @@ def update_output(contents, filename, last_modified):
             return 'There was an error processing this file, try more.', 'None'
     else:
         return '', 'None'
+
+
 
 
 @app.callback(
@@ -1100,6 +1192,48 @@ def update_columns(n_clicks, row_input, existing_rows_1, existing_columns_1):
                 d1[c['id']] = ''
         existing_rows_1.append(d1)
     return existing_rows_1
+
+
+@app.callback([Output('output-data-upload-advanced', 'children'),
+               Output('output-data-upload-hidden-advanced', 'children')
+               ],
+              [Input('upload-data-advanced', 'contents')],
+              [State('upload-data-advanced', 'filename'),
+               State('upload-data-advanced', 'last_modified')])
+def update_output(contents, filename, last_modified):
+    print(filename)
+    if contents is not None:
+        try:
+            content_type, content_string = contents.split(',')
+            decoded = base64.b64decode(content_string)
+            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            return 'Successfully uploaded: ' + filename, str(df.to_dict())
+
+        except Exception as e:
+            return 'There was an error processing this file, try more.', 'None'
+    else:
+        return '', 'None'
+
+
+@app.callback([Output('output-data-upload2-advanced', 'children'),
+               Output('output-data-upload-hidden2-advanced', 'children')
+               ],
+              [Input('upload-data2-advanced', 'contents')],
+              [State('upload-data2-advanced', 'filename'),
+               State('upload-data2-advanced', 'last_modified')])
+def update_output(contents, filename, last_modified):
+    print(filename)
+    if contents is not None:
+        try:
+            content_type, content_string = contents.split(',')
+            decoded = base64.b64decode(content_string)
+            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            return 'Successfully uploaded: ' + filename, str(df.to_dict())
+
+        except Exception as e:
+            return 'There was an error processing this file, try more.', 'None'
+    else:
+        return '', 'None'
 
 
 if __name__ == '__main__':

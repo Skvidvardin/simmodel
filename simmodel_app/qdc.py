@@ -50,11 +50,6 @@ def qdc_algo_2(arrival_serving_time, knot_locations, active_servers_count):
         output[i] = queue_times[queue]
         server_output[i] = queue + 1
 
-        if current_size == 0:
-            i -= 1
-            if next_time == np.inf:
-                break
-
     arrival_serving_time = np.insert(arrival_serving_time, 2, np.array([output, server_output]), axis=1)
 
     return arrival_serving_time
@@ -72,7 +67,7 @@ def next_c(t, k_knot_locations, k_servers_activity_indicators):
         return t
 
 
-def qdc_algo_3(arrival_serving_time, knot_locations, servers_activity_indicators):
+def qdc_algo_3(arrival_serving_time, knot_locations, active_servers_count):
     """
 
     :param arrival_serving_time:
@@ -80,36 +75,183 @@ def qdc_algo_3(arrival_serving_time, knot_locations, servers_activity_indicators
     :param servers_activity_indicators:
     :return:
     """
-    arrival_serving_time = np.insert(arrival_serving_time, 0, np.arange(len(arrival_serving_time)), axis=1)
-    # Sort (a,s) in terms of a(ascending)
-    # arrival_serving_time = arrival_serving_time[arrival_serving_time[:, 1].argsort()]
+    for k in knot_locations.keys():  # x_k,L_(k+1) ← oo
+        knot_locations[k].append(np.inf)
 
-    for k in knot_locations:  # x_k,L_(k+1) ← oo
-        k.append(np.inf)
+    n_servers = dict()
+    queue_times = dict()
+    next_time = dict()
+    current_size = dict()
+    next_size = dict()
+    iteration = dict()
+    for k in active_servers_count.keys():
+        active_servers_count[k].append(0)
+        n_servers[k] = max(active_servers_count[k])
+        queue_times[k] = np.full(n_servers[k], np.inf)  # vector of timestamps when server will be free
+        queue_times[k][:active_servers_count[k][0]] = 0
 
-    for k in servers_activity_indicators:  # y_k,L_(k+2) ← 1
-        k.append(1)  # 0 indicating that server is open, 1 opposite
+        next_time[k] = knot_locations[k][0]
+        current_size[k] = active_servers_count[k][0]
+        next_size[k] = active_servers_count[k][1]
 
-    kk = len(servers_activity_indicators)  # K ← length(x)
+        iteration[k] = 0
 
-    b = np.zeros(kk)  # vector of timestamps when server will be free
-    c = np.zeros(kk)  # vector of timestamps when server will be free at current step
+    n = len(arrival_serving_time)
 
-    p = np.zeros(len(arrival_serving_time)).astype(int)  # vector of indexes of workers who served the model
-    d = np.zeros(len(arrival_serving_time))  # vector of timestamps when model were served
+    server_output = np.full(n, 'None').astype(object)  # vector of indexes of workers who served the model
+    output = np.full(n, np.inf)  # endings of models serving (timestamps)
 
-    for i in range(len(arrival_serving_time)):
-        for k in range(kk):
-            c[k] = next_c(max(arrival_serving_time[i, 1], b[k]), knot_locations[k], servers_activity_indicators[k])
+    for i in range(n):
 
-        p[i] = np.argmin(b)
-        b[p[i]] = c[p[i]] + arrival_serving_time[i, 2]
-        d[i] = b[p[i]]
+        queue_opt_index = dict()
+        queue_opt_value = dict()
+        for k in n_servers.keys():
 
-    arrival_serving_time = np.insert(arrival_serving_time, 3, np.array([d, p]), axis=1)
-    arrival_serving_time = arrival_serving_time[arrival_serving_time[:, 0].argsort()]
+            if (queue_times[k] > next_time[k]).all() or arrival_serving_time.loc[i, 'arrival_time'] >= next_time[k]:
+                diff_size = next_size[k] - current_size[k]
+                if diff_size > 0:
+                    for j in range(current_size[k], next_size[k]):
+                        queue_times[k][j] = next_time[k]
+                if diff_size < 0:
+                    for j in range(next_size[k], current_size[k]):
+                        queue_times[k][j] = np.inf
+
+                current_size[k] = next_size[k]
+                iteration[k] += 1
+                next_size[k] = active_servers_count[k][iteration[k] + 1]
+                next_time[k] = knot_locations[k][iteration[k]]
+
+            queue_opt_index[k] = np.argmin(queue_times[k])
+            st = arrival_serving_time.loc[i, 'service_time_' + k]
+            queue_opt_value[k] = max(arrival_serving_time.loc[i, 'arrival_time'], queue_times[k][queue_opt_index[k]]) + st
+
+        opt_k = min(queue_opt_value, key=queue_opt_value.get)
+        queue_times[opt_k][queue_opt_index[opt_k]] = queue_opt_value[opt_k]
+
+        output[i] = queue_times[opt_k][queue_opt_index[opt_k]]
+        server_output[i] = opt_k
+
+    arrival_serving_time['done_time'] = output
+    arrival_serving_time['serving_worker_type'] = server_output
 
     return arrival_serving_time
+
+
+def base_postprocessing(resultData, dates_inverse_mapper, dates_unique_months, initialQueueSize, initialInprogressSize,
+                        startDate):
+
+    resultData['service_start'] = resultData['done_time'] - resultData['service_time']
+    resultData['queue_time_range'] = resultData['service_start'] - resultData['arrival_time']
+    resultData['done_time_range'] = resultData['done_time'] - resultData['arrival_time']
+
+    for col in ['arrival_time', 'done_time', 'service_start']:
+        resultData[col + '_int'] = (resultData[col] // 1)
+        resultData[col + '_float'] = resultData[col] % 1
+
+        resultData[col + '_int'] = resultData[col + '_int'].map(dates_inverse_mapper)
+        resultData[col + '_float'] = pd.to_timedelta(9 + 9 * resultData[col + '_float'], 'h')
+        resultData[col + '_realtime'] = resultData[col + '_int'] + resultData[col + '_float']
+        del resultData[col + '_int'], resultData[col + '_float']
+
+    dates_unique_months['day'] = 1
+    dates_unique_months['timestamps'] = pd.to_datetime(dates_unique_months) + \
+                                        pd.DateOffset(months=1) - \
+                                        pd.DateOffset(seconds=1)
+
+    # OUTPUT FORMATION
+    resultData['arrival_time_year'] = resultData['arrival_time_realtime'].dt.year
+    resultData['arrival_time_month'] = resultData['arrival_time_realtime'].dt.month
+
+    resultData['service_start_year'] = resultData['service_start_realtime'].dt.year
+    resultData['service_start_month'] = resultData['service_start_realtime'].dt.month
+
+    resultData['done_time_year'] = resultData['done_time_realtime'].dt.year
+    resultData['done_time_month'] = resultData['done_time_realtime'].dt.month
+
+    values = dict()
+
+    # calc incomeNum
+    values['incomeNum'] = \
+        resultData.groupby(['arrival_time_year', 'arrival_time_month', 'sim'], as_index=False) \
+            .count()[['arrival_time_year', 'arrival_time_month', 'sim', 'arrival_time']] \
+            .rename(columns={'arrival_time': 'incomeNum'})
+    values['incomeNum'].loc[(values['incomeNum']['arrival_time_year'] == startDate.year) &
+                            (values['incomeNum']['arrival_time_month'] == startDate.month), 'incomeNum'] -= \
+        (initialQueueSize + initialInprogressSize)
+    values['incomeNum']['date'] = (values['incomeNum']['arrival_time_month']).astype(int).astype(str) + '-' + \
+                                  (values['incomeNum']['arrival_time_year']).astype(int).astype(str)
+    del values['incomeNum']['arrival_time_month'], values['incomeNum']['arrival_time_year']
+
+    # calc doneNum
+    values['doneNum'] = \
+        resultData.groupby(['done_time_year', 'done_time_month', 'sim'], as_index=False) \
+            .count()[['done_time_year', 'done_time_month', 'sim', 'done_time']] \
+            .rename(columns={'done_time': 'doneNum'})
+    values['doneNum']['date'] = (values['doneNum']['done_time_month']).astype(int).astype(str) + '-' + \
+                                (values['doneNum']['done_time_year']).astype(int).astype(str)
+    del values['doneNum']['done_time_month'], values['doneNum']['done_time_year']
+
+    # calc queueNum, inProgressNum, avgServingTime, avgWaitingTime, avgTime2Done
+    for date in dates_unique_months['timestamps']:
+        if date == dates_unique_months['timestamps'][0]:
+            values['queueNum'] = resultData.loc[(resultData['service_start_realtime'] > date) &
+                                                (resultData['arrival_time_realtime'] < date), :] \
+                .groupby(['sim'], as_index=False).count()[['sim', 'service_start']] \
+                .rename(columns={'service_start': 'queueNum'})
+            values['queueNum']['date'] = str(date.month) + '-' + str(date.year)
+
+            values['inProgressNum'] = resultData.loc[(resultData['done_time_realtime'] > date) &
+                                                     (resultData['service_start_realtime'] < date), :] \
+                .groupby(['sim'], as_index=False).count()[['sim', 'done_time']] \
+                .rename(columns={'done_time': 'inProgressNum'})
+            values['inProgressNum']['date'] = str(date.month) + '-' + str(date.year)
+
+            resultData['queue_time_range'] = pd.to_numeric(resultData['queue_time_range'])
+            resultData['done_time_range'] = pd.to_numeric(resultData['done_time_range'])
+            resultData['service_time'] = pd.to_numeric(resultData['service_time'])
+            values['avgTimes'] = resultData.loc[(resultData['done_time_year'] == date.year) &
+                                                (resultData['done_time_month'] == date.month), :] \
+                [['sim', 'service_time', 'queue_time_range', 'done_time_range']] \
+                .groupby(['sim'], as_index=False)\
+                .agg({'service_time': 'mean', 'queue_time_range': 'mean', 'done_time_range': 'mean'}) \
+                .rename(columns={'service_time': 'avgServingTime',
+                                 'queue_time_range': 'avgWaitingTime',
+                                 'done_time_range': 'avgTime2Done'})
+            values['avgTimes']['date'] = str(date.month) + '-' + str(date.year)
+
+        else:
+            value = resultData.loc[(resultData['service_start_realtime'] > date) &
+                                   (resultData['arrival_time_realtime'] < date), :] \
+                .groupby(['sim'], as_index=False).count()[['sim', 'service_start']] \
+                .rename(columns={'service_start': 'queueNum'})
+            value['date'] = str(date.month) + '-' + str(date.year)
+            values['queueNum'] = values['queueNum'].append(value)
+
+            value = resultData.loc[(resultData['done_time_realtime'] > date) &
+                                   (resultData['service_start_realtime'] < date), :] \
+                .groupby(['sim'], as_index=False).count()[['sim', 'done_time']] \
+                .rename(columns={'done_time': 'inProgressNum'})
+            value['date'] = str(date.month) + '-' + str(date.year)
+            values['inProgressNum'] = values['inProgressNum'].append(value)
+
+            value = resultData.loc[(resultData['done_time_year'] == date.year) &
+                                   (resultData['done_time_month'] == date.month), :] \
+                .groupby(['sim'], as_index=False) \
+                .mean()[['sim', 'service_time', 'queue_time_range', 'done_time_range']] \
+                .rename(columns={'service_time': 'avgServingTime',
+                                 'queue_time_range': 'avgWaitingTime',
+                                 'done_time_range': 'avgTime2Done'})
+            value['date'] = str(date.month) + '-' + str(date.year)
+            values['avgTimes'] = values['avgTimes'].append(value)
+
+    result = None
+    for key in values.keys():
+        if result is None:
+            result = values[key]
+        else:
+            result = result.merge(values[key], 'left', on=['sim', 'date'])
+
+    return result
 
 
 def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, initialQueueSize, initialInprogressSize,
@@ -234,113 +376,8 @@ def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, 
 
         resultData = resultData.append(outputData)
 
-    resultData['service_start'] = resultData['done_time'] - resultData['service_time']
-    resultData['queue_time_range'] = resultData['service_start'] - resultData['arrival_time']
-    resultData['done_time_range'] = resultData['done_time'] - resultData['arrival_time']
-
-    for col in ['arrival_time', 'done_time', 'service_start']:
-
-        resultData[col + '_int'] = (resultData[col] // 1)
-        resultData[col + '_float'] = resultData[col] % 1
-
-        resultData[col + '_int'] = resultData[col + '_int'].map(dates_inverse_mapper)
-        resultData[col + '_float'] = pd.to_timedelta(9 + 9 * resultData[col + '_float'], 'h')
-        resultData[col + '_realtime'] = resultData[col + '_int'] + resultData[col + '_float']
-        del resultData[col + '_int'], resultData[col + '_float']
-
-    dates_unique_months['day'] = 1
-    dates_unique_months['timestamps'] = pd.to_datetime(dates_unique_months) + \
-                                        pd.DateOffset(months=1) - \
-                                        pd.DateOffset(seconds=1)
-
-    # OUTPUT FORMATION
-    resultData['arrival_time_year'] = resultData['arrival_time_realtime'].dt.year
-    resultData['arrival_time_month'] = resultData['arrival_time_realtime'].dt.month
-
-    resultData['service_start_year'] = resultData['service_start_realtime'].dt.year
-    resultData['service_start_month'] = resultData['service_start_realtime'].dt.month
-
-    resultData['done_time_year'] = resultData['done_time_realtime'].dt.year
-    resultData['done_time_month'] = resultData['done_time_realtime'].dt.month
-
-    values = dict()
-
-    # calc incomeNum
-    values['incomeNum'] = \
-        resultData.groupby(['arrival_time_year', 'arrival_time_month', 'sim'], as_index=False) \
-            .count()[['arrival_time_year', 'arrival_time_month', 'sim', 'arrival_time']] \
-            .rename(columns={'arrival_time': 'incomeNum'})
-    values['incomeNum'].loc[(values['incomeNum']['arrival_time_year'] == startDate.year) &
-                            (values['incomeNum']['arrival_time_month'] == startDate.month), 'incomeNum'] -= \
-        (initialQueueSize + initialInprogressSize)
-    values['incomeNum']['date'] = (values['incomeNum']['arrival_time_month']).astype(int).astype(str) + '-' + \
-                                  (values['incomeNum']['arrival_time_year']).astype(int).astype(str)
-    del values['incomeNum']['arrival_time_month'], values['incomeNum']['arrival_time_year']
-
-    # calc doneNum
-    values['doneNum'] = \
-        resultData.groupby(['done_time_year', 'done_time_month', 'sim'], as_index=False) \
-            .count()[['done_time_year', 'done_time_month', 'sim', 'done_time']] \
-            .rename(columns={'done_time': 'doneNum'})
-    values['doneNum']['date'] = (values['doneNum']['done_time_month']).astype(int).astype(str) + '-' + \
-                                (values['doneNum']['done_time_year']).astype(int).astype(str)
-    del values['doneNum']['done_time_month'], values['doneNum']['done_time_year']
-
-    # calc queueNum, inProgressNum, avgServingTime, avgWaitingTime, avgTime2Done
-    for date in dates_unique_months['timestamps']:
-        if date == dates_unique_months['timestamps'][0]:
-            values['queueNum'] = resultData.loc[(resultData['service_start_realtime'] > date) &
-                                                (resultData['arrival_time_realtime'] < date), :] \
-                .groupby(['sim'], as_index=False).count()[['sim', 'service_start']] \
-                .rename(columns={'service_start': 'queueNum'})
-            values['queueNum']['date'] = str(date.month)+'-'+str(date.year)
-
-            values['inProgressNum'] = resultData.loc[(resultData['done_time_realtime'] > date) &
-                                                     (resultData['service_start_realtime'] < date), :] \
-                .groupby(['sim'], as_index=False).count()[['sim', 'done_time']] \
-                .rename(columns={'done_time': 'inProgressNum'})
-            values['inProgressNum']['date'] = str(date.month)+'-'+str(date.year)
-
-            values['avgTimes'] = resultData.loc[(resultData['done_time_year'] == date.year) &
-                                                      (resultData['done_time_month'] == date.month), :] \
-                .groupby(['sim'], as_index=False) \
-                .mean()[['sim', 'service_time', 'queue_time_range', 'done_time_range']] \
-                .rename(columns={'service_time': 'avgServingTime',
-                                 'queue_time_range': 'avgWaitingTime',
-                                 'done_time_range': 'avgTime2Done'})
-            values['avgTimes']['date'] = str(date.month)+'-'+str(date.year)
-
-        else:
-            value = resultData.loc[(resultData['service_start_realtime'] > date) &
-                                   (resultData['arrival_time_realtime'] < date), :] \
-                .groupby(['sim'], as_index=False).count()[['sim', 'service_start']] \
-                .rename(columns={'service_start': 'queueNum'})
-            value['date'] = str(date.month)+'-'+str(date.year)
-            values['queueNum'] = values['queueNum'].append(value)
-
-            value = resultData.loc[(resultData['done_time_realtime'] > date) &
-                                   (resultData['service_start_realtime'] < date), :] \
-                .groupby(['sim'], as_index=False).count()[['sim', 'done_time']] \
-                .rename(columns={'done_time': 'inProgressNum'})
-            value['date'] = str(date.month)+'-'+str(date.year)
-            values['inProgressNum'] = values['inProgressNum'].append(value)
-
-            value = resultData.loc[(resultData['done_time_year'] == date.year) &
-                                   (resultData['done_time_month'] == date.month), :] \
-                .groupby(['sim'], as_index=False) \
-                .mean()[['sim', 'service_time', 'queue_time_range', 'done_time_range']] \
-                .rename(columns={'service_time': 'avgServingTime',
-                                 'queue_time_range': 'avgWaitingTime',
-                                 'done_time_range': 'avgTime2Done'})
-            value['date'] = str(date.month)+'-'+str(date.year)
-            values['avgTimes'] = values['avgTimes'].append(value)
-
-    result = None
-    for key in values.keys():
-        if result is None:
-            result = values[key]
-        else:
-            result = result.merge(values[key], 'left', on=['sim', 'date'])
+    result = base_postprocessing(resultData, dates_inverse_mapper, dates_unique_months,
+                                 initialQueueSize, initialInprogressSize, startDate)
 
     return result
 
@@ -448,6 +485,20 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
             knot_locations_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)['date'].tolist()[1:]
             servers_activity_num_by_type[c] = workersNumDF[['date', c]].drop_duplicates(c)[c].tolist()
 
+    max_range_workers_delta = {}
+    for k in knot_locations_by_type.keys():
+        arr = knot_locations_by_type[k].copy()
+        if 0 not in arr:
+            arr.append(0)
+        arr = sorted(arr)
+        diff = np.inf
+        for i in range(len(arr)):
+            if arr[i] != arr[-1]:
+                if arr[i+1] - arr[i] < diff:
+                    diff = arr[i+1] - arr[i]
+        max_range_workers_delta[k] = diff
+    del arr, diff
+
     # SIMMULATIONS
     modelTypes = [c for c in avgModelMartix.columns if c != 'WorkerType']
     for c in modelTypes:
@@ -465,6 +516,10 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
                                     (avgModelMartix.loc[avgModelMartix['WorkerType'] == wt, mt].values[0]),
                                     len(inputData.loc[inputData['model_type'] == mt]))
 
+            inputData['max_service_time_' + wt] = max_range_workers_delta[wt]
+            inputData['service_time_' + wt] = inputData[['service_time_' + wt, 'max_service_time_' + wt]].min(axis=1)
+            del inputData['max_service_time_' + wt]
+
         inputData['input_mult'] = 1
         inputData.loc[inputData['model_input_type'] == 'initialInProgress', 'input_mult'] = \
             np.random.uniform(0, 1, len(inputData.loc[inputData['model_input_type'] == 'initialInProgress']))
@@ -474,14 +529,31 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
 
         _inputData = inputData.drop(columns=['input_mult', 'model_input_type', 'model_type'])
 
-        outputData = qdc_algo_3(_inputData.to_numpy(dtype=float), knot_locations_by_type, servers_activity_num_by_type)
+        outputData = qdc_algo_3(_inputData, knot_locations_by_type, servers_activity_num_by_type)
+        outputData['sim'] = sim
 
-    return -1
+        outputData['service_time'] = np.inf
+        for c in outputData.columns:
+            if c.startswith('service_time'):
+                outputData.loc[outputData['serving_worker_type'] == c[13:], 'service_time'] =\
+                    outputData.loc[outputData['serving_worker_type'] == c[13:], c]
 
+        outputData = outputData[['arrival_time', 'service_time', 'done_time', 'sim']]
 
+        resultData = resultData.append(outputData)
+        print(sim)
+
+    result = base_postprocessing(resultData, dates_inverse_mapper, dates_unique_months,
+                                 initialQueueInprogressMatrix['InQueue'].sum(),
+                                 initialQueueInprogressMatrix['InProgress'].sum(),
+                                 startDate)
+
+    return result
+
+# TEST
 startDate = datetime.datetime.strptime('20/05/2019', '%d/%m/%Y')
 endDate = datetime.datetime.strptime('20/05/2020', '%d/%m/%Y')
-simulationsNum = 100
+simulationsNum = 20
 avgModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '14', 'BlackBoxModel': '30'},
                                {'WorkerType': 'AdvancedWorker', 'BaseModel': '10', 'BlackBoxModel': '15'}])
 stdModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '2', 'BlackBoxModel': '5'},
