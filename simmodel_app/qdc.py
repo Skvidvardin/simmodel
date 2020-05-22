@@ -249,7 +249,7 @@ def base_postprocessing(resultData, dates_inverse_mapper, dates_unique_months, i
         if result is None:
             result = values[key]
         else:
-            result = result.merge(values[key], 'left', on=['sim', 'date'])
+            result = result.merge(values[key], 'outer', on=['sim', 'date'])
 
     return result
 
@@ -548,24 +548,27 @@ def sm_advanced_main(startDate, endDate, simulationsNum,
                                  initialQueueInprogressMatrix['InProgress'].sum(),
                                  startDate)
 
+    result['real_date'] = pd.to_datetime(result['date'], format='%m-%Y')
+    result = result.sort_values('real_date', ignore_index=True)
+
     return result
 
 # TEST
-startDate = datetime.datetime.strptime('20/05/2019', '%d/%m/%Y')
-endDate = datetime.datetime.strptime('20/05/2020', '%d/%m/%Y')
-simulationsNum = 20
-avgModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '14', 'BlackBoxModel': '30'},
-                               {'WorkerType': 'AdvancedWorker', 'BaseModel': '10', 'BlackBoxModel': '15'}])
-stdModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '2', 'BlackBoxModel': '5'},
-                               {'WorkerType': 'AdvancedWorker', 'BaseModel': '1', 'BlackBoxModel': '3'}])
-workersNumDF = pd.DataFrame([{'date': '20/05/2019', 'BaseWorker': 100, 'AdvancedWorker': 30},
-                             {'date': '19/07/2019', 'BaseWorker': 80, 'AdvancedWorker': 50}])
-modelsIncomeDF = pd.DataFrame([{'date': '20/06/2019', 'BaseModel': 600, 'BlackBoxModel': 150},
-                               {'date': '20/08/2019', 'BaseModel': 800, 'BlackBoxModel': 500}])
-initialQueueInprogressMatrix = pd.DataFrame([{'ModelType': 'BaseModel', 'InProgress': '60', 'InQueue': '100'},
-                                             {'ModelType': 'BlackBoxModel', 'InProgress': '10', 'InQueue': '50'}])
-
-a = sm_advanced_main(startDate, endDate, simulationsNum,
-                     avgModelMartix, stdModelMartix,
-                     workersNumDF, modelsIncomeDF,
-                     initialQueueInprogressMatrix)
+# startDate = datetime.datetime.strptime('20/05/2019', '%d/%m/%Y')
+# endDate = datetime.datetime.strptime('20/05/2020', '%d/%m/%Y')
+# simulationsNum = 20
+# avgModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '14', 'BlackBoxModel': '30'},
+#                                {'WorkerType': 'AdvancedWorker', 'BaseModel': '10', 'BlackBoxModel': '15'}])
+# stdModelMartix = pd.DataFrame([{'WorkerType': 'BaseWorker', 'BaseModel': '2', 'BlackBoxModel': '5'},
+#                                {'WorkerType': 'AdvancedWorker', 'BaseModel': '1', 'BlackBoxModel': '3'}])
+# workersNumDF = pd.DataFrame([{'date': '20/05/2019', 'BaseWorker': 100, 'AdvancedWorker': 30},
+#                              {'date': '19/07/2019', 'BaseWorker': 80, 'AdvancedWorker': 50}])
+# modelsIncomeDF = pd.DataFrame([{'date': '20/06/2019', 'BaseModel': 600, 'BlackBoxModel': 150},
+#                                {'date': '20/08/2019', 'BaseModel': 800, 'BlackBoxModel': 500}])
+# initialQueueInprogressMatrix = pd.DataFrame([{'ModelType': 'BaseModel', 'InProgress': '60', 'InQueue': '100'},
+#                                              {'ModelType': 'BlackBoxModel', 'InProgress': '10', 'InQueue': '50'}])
+#
+# a = sm_advanced_main(startDate, endDate, simulationsNum,
+#                      avgModelMartix, stdModelMartix,
+#                      workersNumDF, modelsIncomeDF,
+#                      initialQueueInprogressMatrix)
