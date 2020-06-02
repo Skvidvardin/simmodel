@@ -12,11 +12,14 @@ import dash_table
 import datetime
 from dateutil.relativedelta import relativedelta
 import pandas as pd
+import numpy as np
 
 import plotly.graph_objects as go
+import plotly.figure_factory as ff
+import plotly.express as px
 
-import qdc
-# from simmodel_app import qdc  # for DEBUG
+# import qdc
+from simmodel_app import qdc  # for DEBUG
 
 FONT_AWESOME = "./assets/fontawesome-free-5.13.0-web/css/all.css"
 
@@ -674,31 +677,113 @@ sidebarAdvancedTab = dcc.Tab(label='Advanced settings', children=html.Div([
             ),
         ], width=11),
     ], justify="center"),
+    html.P(),
+        dbc.Row([
+            dbc.Col([
+                dcc.Input(
+                    id='adding-row-input-2',
+                    placeholder='Enter model type...',
+                    value='',
+                    size='14',
+                    style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                           'color': '#cccccc'}
+                ),
+                dbc.Button(html.I(className="fas fa-plus-circle fa-2x", style={'color': "#5bc0de"}),
+                           n_clicks=0, id='adding-row-button-2', color="link"),
+            ]),
+            dbc.Col('', width=6)
+        ]),
+    html.Hr(),
 
+    # SIDEBAR WORKERS COSTS
+    html.P("Select workers costs per type:", style={'color': '#cccccc'}),
+    dbc.Row([
+        dbc.Col([
+            dash_table.DataTable(
+                id='sidebar-table-4',
+                columns=[{'name': 'worker type', 'id': 'column-type', 'editable': False, 'renamable': False},
+                         {'name': 'price per day', 'id': 'price-per-day', 'deletable': False, 'renamable': False},
+                         ],
+                data=[{'column-type': 'BaseWorker', 'price-per-day': '10000'}],
+                editable=True,
+                row_deletable=True,
+                style_header={'backgroundColor': '#222222',
+                              'border': '1px solid #cccccc'},
+                style_cell={
+                    'backgroundColor': '#111111',
+                    'color': '#cccccc',
+                    'border': '1px solid #cccccc'},
+                style_data_conditional=[{
+                    'if': {'column_editable': False},
+                    'backgroundColor': '#222222',
+                    'color': '#cccccc'
+                }],
+                style_header_conditional=[{
+                    'if': {'column_editable': False},
+                    'backgroundColor': '#222222',
+                    'color': '#cccccc'
+                }],
+                css=[{'selector': 'td.cell--selected, td.focused', 'rule': 'background-color: #111111 !important;'},
+                     {'selector': 'td.cell--selected *, td.focused *', 'rule': 'color: #cccccc !important;'}]
+            ),
+        ], width=11),
+    ], justify="center"),
     html.P(),
     dbc.Row([
         dbc.Col([
             dcc.Input(
-                id='adding-row-input-2',
-                placeholder='Enter model type...',
+                id='adding-row-input-3',
+                placeholder='Enter worker type...',
                 value='',
                 size='14',
                 style={'backgroundColor': "#222222", 'borderColor': "#222222",
                        'color': '#cccccc'}
             ),
             dbc.Button(html.I(className="fas fa-plus-circle fa-2x", style={'color': "#5bc0de"}),
-                       n_clicks=0, id='adding-row-button-2', color="link"),
+                       n_clicks=0, id='adding-row-button-3', color="link"),
         ]),
         dbc.Col('', width=6)
     ]),
+    html.Hr(),
 
+    html.Div(
+        [html.P("Select speed in share of cases:", style={'color': '#cccccc'}),
+         dbc.Row([
+             dbc.Col(
+                 dcc.Input(
+                     id='speed-input',
+                     placeholder=1,
+                     type='tel',
+                     value=1,
+                     size='2',
+                     style={'backgroundColor': "#222222", 'borderColor': "#222222",
+                            'color': '#cccccc'}
+                 ), width='auto'
+             ),
+             dbc.Col(
+                 dcc.Slider(
+                     id='speed-slider',
+                     min=0,
+                     max=1,
+                     step=0.01,
+                     value=1,
+                     marks={
+                         0: '0',
+                         0.2: '0.2',
+                         0.4: '0.4',
+                         0.6: '0.6',
+                         0.8: '0.8',
+                         1: '1',
+                     },
+                 )
+             )
+         ]
+         )]
+    ),
     html.Hr(),
 
     # SIDEBAR WARNINGS
     html.Div(html.P(style={'color': '#FF0000'}, id='warning-advanced')),
-
-    # SUBMIT BUTTON
-    # html.Br(),
 
     dbc.Button(
         "Submit",
@@ -774,6 +859,13 @@ def update_output(value):
 
 
 @app.callback(
+    dash.dependencies.Output('speed-input', 'value'),
+    [dash.dependencies.Input('speed-slider', 'value')])
+def update_output(value):
+    return value
+
+
+@app.callback(
     dash.dependencies.Output('warning', 'children'),
     [dash.dependencies.Input('n-models-in-progress-input', 'value'),
      dash.dependencies.Input('n-workers-input', 'value')])
@@ -814,6 +906,8 @@ def update_output(value1, value2):
                State('output-data-upload-hidden-advanced', 'children'),
                State('output-data-upload-hidden2-advanced', 'children'),
                State('sidebar-table-3', 'data'),
+               State('sidebar-table-4', 'data'),
+               State('speed-input', 'value'),
                ])
 def update_output(n_clicks, n_clicks_advanced,
 
@@ -826,7 +920,8 @@ def update_output(n_clicks, n_clicks_advanced,
                   startDateAdvanced, endDateAdvanced, simulationsNumAdvanced,
                   avgModelMartixAdvanced, stdModelMartixAdvanced,
                   workersNumDictAdvanced, modelsIncomeDictAdvanced,
-                  initialQueueInprogressMatrixAdvanced
+                  initialQueueInprogressMatrixAdvanced,
+                  workerPrice, speedPref
                   ):
 
     if n_clicks_catched is None and n_clicks_catched_advanced is None:
@@ -878,13 +973,14 @@ def update_output(n_clicks, n_clicks_advanced,
         layout = go.Layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font={'color': '#cccccc'},
+            # font={'color': '#cccccc'},
+            font={'color': '#000000'},
             xaxis=dict(showgrid=False),
             yaxis=dict(gridcolor='#222222', zerolinecolor='#222222')
 
         )
 
-        # GRAPH 1 (Models Dynamic)
+        # GRAPH 1 (Models Status)
         fig1 = go.Figure(data=[
             go.Bar(name='Income models',
                    x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y') for date in df.date.unique()],
@@ -907,7 +1003,8 @@ def update_output(n_clicks, n_clicks_advanced,
                    marker=go.bar.Marker(color='#5cb85c', line=dict(width=0)),
                    ),
         ], layout=layout)
-        fig1.update_layout(title_text='Models Dynamic (average)', title_x=0.5)
+        fig1.update_layout(title_text='Models Status (average)', title_x=0.5)
+        fig1.write_image("./images/att4.png")
 
         # GRAPH 2 (Queue Dynamics)
         fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
@@ -916,6 +1013,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
+        fig2.write_image("./images/att6.png")
 
         # GRAPH 3 (Average Models Dynamics)
         fig3 = go.Figure(data=[
@@ -932,6 +1030,7 @@ def update_output(n_clicks, n_clicks_advanced,
         ], layout=layout)
         fig3.update_layout(barmode='stack')
         fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
+        fig3.write_image("./images/att5.png")
 
         # GRAPH 4 (Models Time Till Done)
         fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
@@ -940,6 +1039,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
+        fig4.write_image("./images/att7.png")
 
         main_content = [dbc.Row([
             dbc.Col([
@@ -963,6 +1063,8 @@ def update_output(n_clicks, n_clicks_advanced,
 
         avgModelMartixAdvanced = pd.DataFrame(avgModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'})
         stdModelMartixAdvanced = pd.DataFrame(stdModelMartixAdvanced).rename(columns={'column-type': 'WorkerType'})
+        workerPrice = pd.DataFrame(workerPrice)\
+            .rename(columns={'column-type': 'WorkerType', 'price-per-day': 'PricePerDay'})
         initialQueueInprogressMatrixAdvanced = pd.DataFrame(initialQueueInprogressMatrixAdvanced)\
             .rename(columns={'column-type': 'ModelType', 'in-progress': 'InProgress', 'in-queue': 'InQueue'})
 
@@ -990,18 +1092,22 @@ def update_output(n_clicks, n_clicks_advanced,
         print(workersNumDFAdvanced)
         print(modelsIncomeDFAdvanced)
         print(initialQueueInprogressMatrixAdvanced)
+        print(workerPrice)
+        print(speedPref)
 
-        df = qdc.sm_advanced_main(datetime.datetime.strptime(startDateAdvanced, '%d/%m/%Y'),
+        df, costsByTypeCum = qdc.sm_advanced_main(datetime.datetime.strptime(startDateAdvanced, '%d/%m/%Y'),
                                   datetime.datetime.strptime(endDateAdvanced, '%d/%m/%Y'),
                                   int(simulationsNumAdvanced),
                                   avgModelMartixAdvanced, stdModelMartixAdvanced,
                                   workersNumDFAdvanced, modelsIncomeDFAdvanced,
-                                  initialQueueInprogressMatrixAdvanced)
+                                  initialQueueInprogressMatrixAdvanced,
+                                  workerPrice, speedPref)
 
         layout = go.Layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             font={'color': '#cccccc'},
+            # font={'color': '#000000'},
             xaxis=dict(showgrid=False),
             yaxis=dict(gridcolor='#222222', zerolinecolor='#222222')
 
@@ -1031,6 +1137,7 @@ def update_output(n_clicks, n_clicks_advanced,
                    ),
         ], layout=layout)
         fig1.update_layout(title_text='Models Dynamic (average)', title_x=0.5)
+        fig1.write_image("./images/res1.png")
 
         # GRAPH 2 (Queue Dynamics)
         fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
@@ -1039,6 +1146,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
+        fig2.write_image("./images/res2.png")
 
         # GRAPH 3 (Average Models Dynamics)
         fig3 = go.Figure(data=[
@@ -1055,6 +1163,7 @@ def update_output(n_clicks, n_clicks_advanced,
         ], layout=layout)
         fig3.update_layout(barmode='stack')
         fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
+        fig3.write_image("./images/res3.png")
 
         # GRAPH 4 (Models Time Till Done)
         fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
@@ -1063,15 +1172,104 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
+        fig4.write_image("./images/res4.png")
 
-        main_content = [dbc.Row([
-            dbc.Col([
-                dcc.Graph(figure=fig1)
-            ], width='6'),
-            dbc.Col([
-                dcc.Graph(figure=fig2)
-            ], width='6'),
-        ]),
+        # GRAPH 5 (Done Models Workers Type)
+        fig5 = go.Figure(layout=layout)
+        for wtype_index in workerPrice.index:
+            if wtype_index == 0 and workerPrice.loc[wtype_index, 'WorkerType'] in df.columns:
+                fig5.add_trace(go.Scatter(x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y')
+                                             for date in df.date.unique()],
+                                          y=[df.loc[df['date'] == date,
+                                                    workerPrice.loc[wtype_index, 'WorkerType']].mean()
+                                             for date in df.date.unique()],
+                                          fill='tozeroy',
+                                          name=workerPrice.loc[wtype_index, 'WorkerType']))
+            elif workerPrice.loc[wtype_index, 'WorkerType'] in df.columns:
+                fig5.add_trace(go.Scatter(x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y')
+                                             for date in df.date.unique()],
+                                          y=[df.loc[df['date'] == date,
+                                                    list(workerPrice.loc[:wtype_index+1, 'WorkerType'])]
+                                             .sum(axis=1).mean()
+                                             for date in df.date.unique()],
+                                          fill='tonexty',
+                                          name=workerPrice.loc[wtype_index, 'WorkerType']))
+        fig5.update_layout(title_text='Done Models Workers Type', title_x=0.5)
+        fig5.write_image("./images/res5.png")
+
+        # GRAPH 6 (Cost Distribution)
+        fig6 = go.Figure(layout=layout)
+        for wtype_index in workerPrice.index:
+            if wtype_index == 0 and workerPrice.loc[wtype_index, 'WorkerType'] + '_1' in df.columns:
+                fig6.add_trace(go.Scatter(x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y')
+                                             for date in df.date.unique()],
+                                          y=[df.loc[df['date'] == date,
+                                                    workerPrice.loc[wtype_index, 'WorkerType'] + '_1'].mean()
+                                             for date in df.date.unique()],
+                                          fill='tozeroy',
+                                          name=workerPrice.loc[wtype_index, 'WorkerType']))
+            elif workerPrice.loc[wtype_index, 'WorkerType'] + '_1' in df.columns:
+                fig6.add_trace(go.Scatter(x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y')
+                                             for date in df.date.unique()],
+                                          y=[df.loc[df['date'] == date,
+                                                    list(workerPrice.loc[:wtype_index + 1, 'WorkerType'] + '_1')]
+                                          .sum(axis=1).mean()
+                                             for date in df.date.unique()],
+                                          fill='tonexty',
+                                          name=workerPrice.loc[wtype_index, 'WorkerType']))
+        fig6.update_layout(title_text='Effective Time By Type', title_x=0.5)
+        fig6.write_image("./images/res6.png")
+
+        costsByTypeCum['costsByTypeCum'] = 0
+        for wtype_index in workerPrice.index:
+            if workerPrice.loc[wtype_index, 'WorkerType'] + '_2' in costsByTypeCum.columns:
+                costsByTypeCum[workerPrice.loc[wtype_index, 'WorkerType'] + '_2'] *= \
+                    workerPrice.loc[wtype_index, 'PricePerDay']
+                costsByTypeCum['costsByTypeCum'] += costsByTypeCum[workerPrice.loc[wtype_index, 'WorkerType'] + '_2']
+
+        # GRAPH 7 (Cost Distribution)
+        fig7 = go.Figure(data=[go.Histogram(x=costsByTypeCum['costsByTypeCum'].tolist(),
+                                            histnorm='probability')], layout=layout)
+        fig7.update_layout(title_text='Cost Distribution', title_x=0.5)
+        fig7.write_image("./images/res7.png")
+
+        # GRAPH 8 (Cost Distribution)
+        fig8 = go.Figure(layout=layout)
+        for wtype_index in workerPrice.index:
+            if wtype_index == 0 and workerPrice.loc[wtype_index, 'WorkerType'] in df.columns:
+                fig8.add_trace(go.Scatter(x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y')
+                                             for date in df.date.unique()],
+                                          y=[df.loc[df['date'] == date,
+                                                    workerPrice.loc[wtype_index, 'WorkerType'] + '_1'].mean() \
+                                             * workerPrice.loc[wtype_index, 'PricePerDay']
+                                             for date in df.date.unique()],
+                                          hoverinfo='x+y',
+                                          mode='lines',
+                                          stackgroup='one',
+                                          name=workerPrice.loc[wtype_index, 'WorkerType']))
+            elif workerPrice.loc[wtype_index, 'WorkerType'] in df.columns:
+                fig8.add_trace(go.Scatter(x=[datetime.datetime.strptime(date, '%m-%Y').strftime('%b-%Y')
+                                             for date in df.date.unique()],
+                                          y=[df.loc[df['date'] == date,
+                                                    workerPrice.loc[wtype_index, 'WorkerType'] + '_1'].mean() *
+                                             workerPrice.loc[wtype_index, 'PricePerDay']
+                                             for date in df.date.unique()],
+                                          hoverinfo='x+y',
+                                          mode='lines',
+                                          stackgroup='one',
+                                          name=workerPrice.loc[wtype_index, 'WorkerType']))
+        fig8.update_layout(title_text='Effective Costs By Type', title_x=0.5)
+        fig8.write_image("./images/res8.png")
+
+        main_content = [
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=fig1)
+                ], width='6'),
+                dbc.Col([
+                    dcc.Graph(figure=fig2)
+                ], width='6'),
+            ]),
             dbc.Row([
                 dbc.Col([
                     dcc.Graph(figure=fig3)
@@ -1079,7 +1277,24 @@ def update_output(n_clicks, n_clicks_advanced,
                 dbc.Col([
                     dcc.Graph(figure=fig4)
                 ], width='6'),
-            ])]
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=fig5)
+                ], width='6'),
+                dbc.Col([
+                    dcc.Graph(figure=fig6)
+                ], width='6'),
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Graph(figure=fig7)
+                ], width='6'),
+                dbc.Col([
+                    dcc.Graph(figure=fig8)
+                ], width='6'),
+            ]),
+        ]
 
     else:
         main_content = ''
@@ -1127,8 +1342,6 @@ def update_output(contents, filename, last_modified):
             return 'There was an error processing this file, try more.', 'None'
     else:
         return '', 'None'
-
-
 
 
 @app.callback(
@@ -1182,6 +1395,24 @@ def update_columns(n_clicks, value, existing_columns_1, existing_columns_2):
     [State('adding-row-input-2', 'value'),
      State('sidebar-table-3', 'data'),
      State('sidebar-table-3', 'columns')])
+def update_columns(n_clicks, row_input, existing_rows_1, existing_columns_1):
+    if n_clicks > 0:
+        d1 = {}
+        for c in existing_columns_1:
+            if c['id'] == 'column-type':
+                d1[c['id']] = row_input
+            else:
+                d1[c['id']] = ''
+        existing_rows_1.append(d1)
+    return existing_rows_1
+
+
+@app.callback(
+    Output('sidebar-table-4', 'data'),
+    [Input('adding-row-button-3', 'n_clicks')],
+    [State('adding-row-input-3', 'value'),
+     State('sidebar-table-4', 'data'),
+     State('sidebar-table-4', 'columns')])
 def update_columns(n_clicks, row_input, existing_rows_1, existing_columns_1):
     if n_clicks > 0:
         d1 = {}
