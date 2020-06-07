@@ -333,19 +333,6 @@ def advanced_postprocessing(resultData, dates_inverse_mapper, dates_unique_month
         if col not in ['sim', 'costsByType', 'date']:
             values['costsByType'] = values['costsByType'].rename(columns={col: col + '_1'})
 
-    # calc costsByTypeCum
-    values['costsByTypeCum'] = \
-        resultData.groupby(['sim', 'serving_worker_type'], as_index=False) \
-            .sum()[['sim', 'serving_worker_type', 'service_time']] \
-            .rename(columns={'service_time': 'costsByTypeCum'})
-    values['costsByTypeCum'] = values['costsByTypeCum'] \
-        .merge(values['costsByTypeCum'].pivot(columns='serving_worker_type', values='costsByTypeCum'), 'left',
-               left_index=True, right_index=True) \
-        .groupby(['sim'], as_index=False).sum()
-    for col in values['costsByTypeCum'].columns:
-        if col not in ['sim', 'costsByTypeCum']:
-            values['costsByTypeCum'] = values['costsByTypeCum'].rename(columns={col: col + '_2'})
-
     # calc queueNum, inProgressNum, avgServingTime, avgWaitingTime, avgTime2Done
     for date in dates_unique_months['timestamps']:
         if date == dates_unique_months['timestamps'][0]:
@@ -401,17 +388,16 @@ def advanced_postprocessing(resultData, dates_inverse_mapper, dates_unique_month
 
     result = None
     for key in values.keys():
-        if key != 'costsByTypeCum':
-            if result is None:
-                result = values[key]
-            else:
-                result = result.merge(values[key], 'outer', on=['sim', 'date'])
+        if result is None:
+            result = values[key]
+        else:
+            result = result.merge(values[key], 'outer', on=['sim', 'date'])
 
     result['real_date'] = pd.to_datetime(result['date'], format='%m-%Y')
     result = result.sort_values('real_date', ignore_index=True)
     result = result.loc[(result['real_date'] > startDate) & (result['real_date'] < endDate), :]
 
-    return result, values['costsByTypeCum']
+    return result
 
 
 def sm_main(simulationsNum, nWorkers, nWorkersDF, modelsIncome, modelsIncomeDF, initialQueueSize, initialInprogressSize,
