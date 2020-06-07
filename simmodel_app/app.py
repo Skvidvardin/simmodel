@@ -18,8 +18,8 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import plotly.express as px
 
-import qdc
-# from simmodel_app import qdc  # for DEBUG
+# import qdc
+from simmodel_app import qdc  # for DEBUG
 
 FONT_AWESOME = "./assets/fontawesome-free-5.13.0-web/css/all.css"
 
@@ -1004,7 +1004,7 @@ def update_output(n_clicks, n_clicks_advanced,
                    ),
         ], layout=layout)
         fig1.update_layout(title_text='Models Status (average)', title_x=0.5)
-        fig1.write_image("./images/att4.png")
+        # fig1.write_image("./images/att4.png")
 
         # GRAPH 2 (Queue Dynamics)
         fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
@@ -1013,7 +1013,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
-        fig2.write_image("./images/att6.png")
+        # fig2.write_image("./images/att6.png")
 
         # GRAPH 3 (Average Models Dynamics)
         fig3 = go.Figure(data=[
@@ -1030,7 +1030,7 @@ def update_output(n_clicks, n_clicks_advanced,
         ], layout=layout)
         fig3.update_layout(barmode='stack')
         fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
-        fig3.write_image("./images/att5.png")
+        # fig3.write_image("./images/att5.png")
 
         # GRAPH 4 (Models Time Till Done)
         fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
@@ -1039,7 +1039,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
-        fig4.write_image("./images/att7.png")
+        # fig4.write_image("./images/att7.png")
 
         main_content = [dbc.Row([
             dbc.Col([
@@ -1106,8 +1106,8 @@ def update_output(n_clicks, n_clicks_advanced,
         layout = go.Layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            # font={'color': '#cccccc'},
-            font={'color': '#000000'},
+            font={'color': '#cccccc'},
+            # font={'color': '#000000'},
             xaxis=dict(showgrid=False),
             yaxis=dict(gridcolor='#222222', zerolinecolor='#222222')
 
@@ -1137,7 +1137,7 @@ def update_output(n_clicks, n_clicks_advanced,
                    ),
         ], layout=layout)
         fig1.update_layout(title_text='Models Dynamic (average)', title_x=0.5)
-        fig1.write_image("./images/res9.png")
+        # fig1.write_image("./images/res9.png")
 
         # GRAPH 2 (Queue Dynamics)
         fig2 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'queueNum'],
@@ -1146,7 +1146,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig2.update_layout(title_text='Queue Dynamics', title_x=0.5)
-        fig2.write_image("./images/res10.png")
+        # fig2.write_image("./images/res10.png")
 
         # GRAPH 3 (Average Models Dynamics)
         fig3 = go.Figure(data=[
@@ -1163,7 +1163,7 @@ def update_output(n_clicks, n_clicks_advanced,
         ], layout=layout)
         fig3.update_layout(barmode='stack')
         fig3.update_layout(title_text='Models Dynamics (average)', title_x=0.5)
-        fig3.write_image("./images/res11.png")
+        # fig3.write_image("./images/res11.png")
 
         # GRAPH 4 (Models Time Till Done)
         fig4 = go.Figure(data=[go.Box(y=df.loc[df['date'] == date, 'avgTime2Done'],
@@ -1172,7 +1172,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                for date in df.date.unique()],
                          layout=layout)
         fig4.update_layout(title_text='Average Time2Done', title_x=0.5)
-        fig4.write_image("./images/res12.png")
+        # fig4.write_image("./images/res12.png")
 
         # GRAPH 5 (Done Models Workers Type)
         fig5 = go.Figure(layout=layout)
@@ -1195,7 +1195,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                           fill='tonexty',
                                           name=workerPrice.loc[wtype_index, 'WorkerType']))
         fig5.update_layout(title_text='Done Models Workers Type', title_x=0.5)
-        fig5.write_image("./images/res13.png")
+        # fig5.write_image("./images/res13.png")
 
         # GRAPH 6 (Cost Distribution)
         fig6 = go.Figure(layout=layout)
@@ -1218,7 +1218,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                           fill='tonexty',
                                           name=workerPrice.loc[wtype_index, 'WorkerType']))
         fig6.update_layout(title_text='Effective Time By Type', title_x=0.5)
-        fig6.write_image("./images/res14.png")
+        # fig6.write_image("./images/res14.png")
 
         # GRAPH 7 (Cost Distribution)
         costsByTypeCum = []
@@ -1231,7 +1231,7 @@ def update_output(n_clicks, n_clicks_advanced,
 
         fig7 = go.Figure(data=[go.Histogram(x=costsByTypeCum, histnorm='probability')], layout=layout)
         fig7.update_layout(title_text='Cost Distribution', title_x=0.5)
-        fig7.write_image("./images/res15.png")
+        # fig7.write_image("./images/res15.png")
 
         # GRAPH 8 (Cost Distribution)
         fig8 = go.Figure(layout=layout)
@@ -1259,7 +1259,7 @@ def update_output(n_clicks, n_clicks_advanced,
                                           stackgroup='one',
                                           name=workerPrice.loc[wtype_index, 'WorkerType']))
         fig8.update_layout(title_text='Effective Costs By Type', title_x=0.5)
-        fig8.write_image("./images/res16.png")
+        # fig8.write_image("./images/res16.png")
 
         main_content = [
             dbc.Row([
