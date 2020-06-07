@@ -18,8 +18,8 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import plotly.express as px
 
-# import qdc
-from simmodel_app import qdc  # for DEBUG
+import qdc
+# from simmodel_app import qdc  # for DEBUG
 
 FONT_AWESOME = "./assets/fontawesome-free-5.13.0-web/css/all.css"
 
